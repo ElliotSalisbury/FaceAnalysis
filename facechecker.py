@@ -17,7 +17,7 @@ dstDir = "C:\\Users\\ellio\\Desktop\\fb\\MyFaces"
 impaths = []
 
 trainingcsv = os.path.join(dstDir, "trainingdata.csv")
-trainingcsvf = open(trainingcsv, 'w')
+trainingcsvf = open(trainingcsv,'w',newline='')
 trainingcsvwriter = csv.writer(trainingcsvf)
 # mturkimhost = "https://crowddrone.ecs.soton.ac.uk:9090/static/%s"
 
@@ -38,12 +38,12 @@ with open(mturkresultspath, 'r') as mturkresultsf:
 #filter the images that have more than a third INVALIDS, and remove INVALIDS from the list
 mturkresults = {key:[score for score in mturkresults[key] if score != INVALID] for key in mturkresults if mturkresults[key].count(INVALID) / float(len(mturkresults[key])) < 0.33}
 
-scores = []
-for imgid in mturkresults:
-    score = np.mean(mturkresults[imgid])
-    scores.append(score)
-n, bins, patches = plt.hist(scores, 20, normed=1, facecolor='green', alpha=0.75)
-plt.show()
+# scores = []
+# for imgid in mturkresults:
+#     score = np.mean(mturkresults[imgid])
+#     scores.append(score)
+# n, bins, patches = plt.hist(scores, 20, normed=1, facecolor='green', alpha=0.75)
+# plt.show()
 
 #read meta data file
 with open(metafile, 'r', encoding="utf8") as data_file:
@@ -151,17 +151,19 @@ for i, data in enumerate(metadata):
 
                 #get images ready for training
                 if "mturkrating" in data and len(data["mturkrating"]) > 1:
-                    score = np.median(data["mturkrating"])
+                    median = np.median(data["mturkrating"])
+                    mean = np.mean(data["mturkrating"])
 
-                    outpath = os.path.join(dstDir, str(score))
+                    outpath = os.path.join(dstDir, str(median))
                     if not os.path.exists(outpath):
                         os.makedirs(outpath)
 
                     facepath = os.path.join(outpath, filename)
 
-                    # cv2.resize()
+                    #resize for neural net
+                    faceim = cv2.resize(faceim, (227,227))
                     cv2.imwrite(facepath, faceim)
 
-                    trainingcsvwriter.writerow([facepath, score])
+                    trainingcsvwriter.writerow([facepath, median, mean])
 
 trainingcsvf.close()
