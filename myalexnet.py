@@ -27,22 +27,12 @@ import random as pyrand
 
 import tensorflow as tf
 
-train_x = zeros((1, 227,227,3)).astype(float32)
-train_y = zeros((1, 1000))
-xdim = train_x.shape[1:]
-ydim = train_y.shape[1]
-
-
-
 ################################################################################
 #Read Image
 def prepareImg(img):
-    x_dummy = (random.random((1,)+ xdim)/255.).astype(float32)
-    i = x_dummy.copy()
-    i[0,:,:,:] = np.array(img).astype(float32)
-    i = i-mean(i)
-    return i
-i = prepareImg(cv2.imread("poodle.png")[:,:,:3])
+    img = np.array(img).astype(float32)
+    img = img-mean(img)
+    return img
 
 ################################################################################
 
@@ -197,10 +187,9 @@ my_fc8b = bias_variable([1])
 my_fc8 = tf.nn.xw_plus_b(fc7, my_fc8W, my_fc8b)
 
 #train model
-cross_entropy = -tf.reduce_sum(y*tf.log(my_fc8))
+cross_entropy = tf.reduce_sum((y-my_fc8)*(y-my_fc8))
 train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-correct_prediction = tf.equal(tf.argmax(my_fc8,1), tf.argmax(y,1))
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+accuracy = tf.reduce_mean((y-my_fc8)*(y-my_fc8))
 
 #############################################################################################
 
@@ -210,7 +199,7 @@ with open(trainingData, 'r') as mturkresultsf:
     mturkcsvreader = csv.reader(mturkresultsf)
     for row in mturkcsvreader:
         impath = row[0]
-        im = cv2.imread(impath)
+        im = prepareImg(cv2.imread(impath))
         score = float(row[1])
 
         allData.append(np.array([im,score]))
@@ -222,10 +211,20 @@ testData = allData[trainSize:]
 
 def getTrainingBatch(size):
     indexs = np.random.choice(np.arange(trainingData.shape[0]),size)
-    sample = trainingData[indexs,:]
-    return sample[:,0], sample[:,1]
+    samples = trainingData[indexs,:]
+    Xs = np.zeros((size, 227, 227, 3))
+    Ys = np.zeros((size, 1))
+    for i, sample in enumerate(samples):
+        Xs[i, :, :, :] = sample[0]
+        Ys[i, 0] = sample[1]
+    return Xs, Ys
 def getTestData():
-    return testData[:,0], testData[:,1]
+    Xs = np.zeros((len(testData), 227, 227, 3))
+    Ys = np.zeros((len(testData), 1))
+    for i, testDatum in enumerate(testData):
+        Xs[i, :, :, :] = testDatum[0]
+        Ys[i,0] = testDatum[1]
+    return Xs, Ys
 
 saver = tf.train.Saver()
 
@@ -240,44 +239,10 @@ for i in range(10001):
         save_path = saver.save(sess, "./saves/model_%06d.ckpt"%i)
     sess.run(train_step, feed_dict={x: batch[0], y: batch[1]})
 
-test_xs, test_ys = getTestData()
-print("test accuracy %g"%sess.run(accuracy, feed_dict={x: test_xs, y: test_ys}))
+# test_xs, test_ys = getTestData()
+# print("test accuracy %g"%sess.run(accuracy, feed_dict={x: test_xs, y: test_ys}))
 
+batch = getTrainingBatch(50)
+scores = sess.run(my_fc8, feed_dict={x: batch[0]})
 
-# def getTrainingData(importedData):
-#     Xs = np.array(importedData.tolist())[0][np.newaxis, ...]
-#     Ys = np.array(np.array(importedData.tolist())[1])[np.newaxis, ...]
-#     return Xs, Ys
-#
-# for samplePickle in os.listdir("./training/negative"):
-#     with open("training/negative/%s"%samplePickle, "rb") as f:
-#         importedData = np.array(pickle.load(f))
-#
-#
-#     Xs,Ys = getTrainingData(importedData)
-#     numBatches = int(math.ceil(Xs.shape[0] / float(NUM_IMAGES)))
-#     bottlenecks = []
-#     for b in range(numBatches):
-#         xs = Xs[b * NUM_IMAGES:(b + 1) * NUM_IMAGES]
-#         newxs = np.zeros([NUM_IMAGES, xs.shape[1], xs.shape[2], xs.shape[3]])
-#         newxs[0:xs.shape[0]] = xs
-#         bottleneck = sess.run(fc7, feed_dict={x:newxs})
-#
-#         for i in range(xs.shape[0]):
-#             bottlenecks.append([bottleneck[i],Ys[i]])
-#
-#     with open('bottlenecks/negative/%s'%samplePickle, 'wb') as f:
-#         pickle.dump(bottlenecks, f)
-
-def getBottlenecks(imgs):
-    bottlenecks = []
-    for img in imgs:
-        i = np.zeros((1,) + xdim).astype(float32)
-        i[0, :, :, :] = np.array(img).astype(float32)
-        i = i - mean(i)
-
-        bottlenecks.append(sess.run(fc7, feed_dict={x: i}))
-    return bottlenecks
-
-btlnecks = getBottlenecks(i)
-print(btlnecks)
+print(scores)
