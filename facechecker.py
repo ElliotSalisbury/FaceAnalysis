@@ -9,11 +9,14 @@ import csv
 import collections
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 detector = dlib.get_frontal_face_detector()
-metafile = "C:\\Users\\ellio\\Desktop\\fb\\Elliot Salisbury_all_meta.txt"
-srcDir = "C:\\Users\\ellio\\Desktop\\fb\\Elliot Salisbury_all_backup_files"
-dstDir = "C:\\Users\\ellio\\Desktop\\fb\\MyFaces"
+facebookDataSetPath = sys.argv[1]
+
+metafile = os.path.join(facebookDataSetPath,"Elliot Salisbury_all_meta.txt")
+srcDir = os.path.join(facebookDataSetPath,"Elliot Salisbury_all_files")
+dstDir = os.path.join(facebookDataSetPath,"MyFaces")
 impaths = []
 
 trainingcsv = os.path.join(dstDir, "trainingdata.csv")
@@ -22,7 +25,7 @@ trainingcsvwriter = csv.writer(trainingcsvf)
 # mturkimhost = "https://crowddrone.ecs.soton.ac.uk:9090/static/%s"
 
 #process the mturk rating results
-mturkresultspath = "C:\\Users\\ellio\\Desktop\\fb\\Batch_2618752_batch_results.csv"
+mturkresultspath = os.path.join(facebookDataSetPath,"Batch_2618752_batch_results.csv")
 mturkresults = collections.defaultdict(list)
 INVALID = 'invalid'
 with open(mturkresultspath, 'r') as mturkresultsf:

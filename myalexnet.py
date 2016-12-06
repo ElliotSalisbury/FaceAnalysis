@@ -20,9 +20,9 @@ import cv2
 import matplotlib.image as mpimg
 from scipy.ndimage import filters
 import urllib
-from numpy import random
 import pickle
 import random as pyrand
+import sys
 
 
 import tensorflow as tf
@@ -74,7 +74,6 @@ def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group
 
 
 
-# x_ = tf.Variable(i)
 
 NUM_IMAGES = 50
 x = tf.placeholder("float", shape=[NUM_IMAGES, 227,227,3])
@@ -187,44 +186,42 @@ my_fc8b = bias_variable([1])
 my_fc8 = tf.nn.xw_plus_b(fc7, my_fc8W, my_fc8b)
 
 #train model
-cross_entropy = tf.reduce_sum((y-my_fc8)*(y-my_fc8))
-train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-accuracy = tf.reduce_mean((y-my_fc8)*(y-my_fc8))
+loss = tf.reduce_mean(tf.square(y-my_fc8))
+optimizer = tf.train.AdamOptimizer()
+train_step = optimizer.minimize(loss)
 
 #############################################################################################
 
-trainingData = "C:\\Users\\ellio\\Desktop\\fb\\MyFaces\\trainingdata.csv"
+np.random.seed(seed=1)
+trainingData = sys.argv[1]
 allData = []
 with open(trainingData, 'r') as mturkresultsf:
     mturkcsvreader = csv.reader(mturkresultsf)
     for row in mturkcsvreader:
         impath = row[0]
         im = prepareImg(cv2.imread(impath))
-        score = float(row[1])
+        score = float(row[2])
 
-        allData.append(np.array([im,score]))
+        allData.append(np.array([im,score,impath]))
 allData = np.array(allData)
 np.random.shuffle(allData)
 trainSize = int(allData.shape[0] * 0.8)
 trainingData = allData[:trainSize]
 testData = allData[trainSize:]
 
-def getTrainingBatch(size):
-    indexs = np.random.choice(np.arange(trainingData.shape[0]),size)
-    samples = trainingData[indexs,:]
+def getBatch(data, size):
+    indexs = np.random.choice(np.arange(data.shape[0]),size)
+    samples = data[indexs,:]
     Xs = np.zeros((size, 227, 227, 3))
     Ys = np.zeros((size, 1))
     for i, sample in enumerate(samples):
         Xs[i, :, :, :] = sample[0]
         Ys[i, 0] = sample[1]
     return Xs, Ys
-def getTestData():
-    Xs = np.zeros((len(testData), 227, 227, 3))
-    Ys = np.zeros((len(testData), 1))
-    for i, testDatum in enumerate(testData):
-        Xs[i, :, :, :] = testDatum[0]
-        Ys[i,0] = testDatum[1]
-    return Xs, Ys
+def getTrainingBatch(size):
+    return getBatch(trainingData, size)
+def getTestData(size):
+    return getBatch(testData, size)
 
 saver = tf.train.Saver()
 
@@ -232,17 +229,37 @@ init = tf.initialize_all_variables()
 sess = tf.Session()
 sess.run(init)
 
-for i in range(10001):
-    batch = getTrainingBatch(50)
-    if i%100 == 0:
-        print("step %d, training accuracy %g"%(i,sess.run(accuracy, feed_dict={x:batch[0], y: batch[1]})))
-        save_path = saver.save(sess, "./saves/model_%06d.ckpt"%i)
-    sess.run(train_step, feed_dict={x: batch[0], y: batch[1]})
+# for i in range(1501):
+#     batch = getTrainingBatch(NUM_IMAGES)
+#     if i%100 == 0:
+#         print("step %d, training accuracy %g"%(i,sess.run(loss, feed_dict={x:batch[0], y: batch[1]})))
+#         test_xs, test_ys = getTestData(NUM_IMAGES)
+#         print("test accuracy %g" % sess.run(loss, feed_dict={x: test_xs, y: test_ys}))
+#         save_path = saver.save(sess, "./saves/model_%06d.ckpt"%i)
+#     sess.run(train_step, feed_dict={x: batch[0], y: batch[1]})
 
-# test_xs, test_ys = getTestData()
-# print("test accuracy %g"%sess.run(accuracy, feed_dict={x: test_xs, y: test_ys}))
 
-batch = getTrainingBatch(50)
-scores = sess.run(my_fc8, feed_dict={x: batch[0]})
 
-print(scores)
+saver.restore(sess,"./saves/model_001500.ckpt")
+test_xs, test_ys = getTestData(NUM_IMAGES)
+print("test accuracy %g"%sess.run(loss, feed_dict={x: test_xs, y: test_ys}))
+
+#sort the data and save out the best in order
+i = 0
+allDataScores = []
+while i<len(testData):
+    Xs = np.zeros((NUM_IMAGES, 227, 227, 3))
+    for j in range(0,i+NUM_IMAGES):
+        if i+j >= len(testData):
+            break
+        Xs[j, :, :, :] = testData[i+j,0]
+
+    scores = sess.run(my_fc8, feed_dict={x: Xs})
+    for j, score in enumerate(scores):
+        if i + j < len(testData):
+            allDataScores.append([testData[i+j,0],testData[i+j,1],score[0]])
+    i+=NUM_IMAGES
+
+allDataScores = sorted(allDataScores, key=lambda e:e[2])
+for i, data in enumerate(allDataScores):
+    cv2.imwrite("./imgs/%02d_%0.2f_%0.2f.jpg"%(i,data[1],data[2]),data[0])
