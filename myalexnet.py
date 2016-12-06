@@ -181,9 +181,12 @@ def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
+keep_prob = tf.placeholder(tf.float32)
+my_fc7_drop = tf.nn.dropout(fc7, keep_prob)
+
 my_fc8W = weight_variable([4096, 1])
 my_fc8b = bias_variable([1])
-my_fc8 = tf.nn.xw_plus_b(fc7, my_fc8W, my_fc8b)
+my_fc8 = tf.nn.xw_plus_b(my_fc7_drop, my_fc8W, my_fc8b)
 
 #train model
 loss = tf.reduce_mean(tf.square(y-my_fc8))
@@ -229,37 +232,37 @@ init = tf.initialize_all_variables()
 sess = tf.Session()
 sess.run(init)
 
-# for i in range(1501):
-#     batch = getTrainingBatch(NUM_IMAGES)
-#     if i%100 == 0:
-#         print("step %d, training accuracy %g"%(i,sess.run(loss, feed_dict={x:batch[0], y: batch[1]})))
-#         test_xs, test_ys = getTestData(NUM_IMAGES)
-#         print("test accuracy %g" % sess.run(loss, feed_dict={x: test_xs, y: test_ys}))
-#         save_path = saver.save(sess, "./saves/model_%06d.ckpt"%i)
-#     sess.run(train_step, feed_dict={x: batch[0], y: batch[1]})
+for i in range(10001):
+    batch = getTrainingBatch(NUM_IMAGES)
+    if i%100 == 0:
+        print("step %d, training accuracy %g"%(i,sess.run(loss, feed_dict={x:batch[0], y: batch[1], keep_prob:1.0})))
+        test_xs, test_ys = getTestData(NUM_IMAGES)
+        print("test accuracy %g" % sess.run(loss, feed_dict={x: test_xs, y: test_ys, keep_prob:1.0}))
+        save_path = saver.save(sess, "./saves/model_%06d.ckpt"%i)
+    sess.run(train_step, feed_dict={x: batch[0], y: batch[1], keep_prob:0.5})
 
 
 
-saver.restore(sess,"./saves/model_001500.ckpt")
-test_xs, test_ys = getTestData(NUM_IMAGES)
-print("test accuracy %g"%sess.run(loss, feed_dict={x: test_xs, y: test_ys}))
-
-#sort the data and save out the best in order
-i = 0
-allDataScores = []
-while i<len(testData):
-    Xs = np.zeros((NUM_IMAGES, 227, 227, 3))
-    for j in range(0,i+NUM_IMAGES):
-        if i+j >= len(testData):
-            break
-        Xs[j, :, :, :] = testData[i+j,0]
-
-    scores = sess.run(my_fc8, feed_dict={x: Xs})
-    for j, score in enumerate(scores):
-        if i + j < len(testData):
-            allDataScores.append([testData[i+j,0],testData[i+j,1],score[0]])
-    i+=NUM_IMAGES
-
-allDataScores = sorted(allDataScores, key=lambda e:e[2])
-for i, data in enumerate(allDataScores):
-    cv2.imwrite("./imgs/%02d_%0.2f_%0.2f.jpg"%(i,data[1],data[2]),data[0])
+# saver.restore(sess,"./saves/model_001500.ckpt")
+# test_xs, test_ys = getTestData(NUM_IMAGES)
+# print("test accuracy %g"%sess.run(loss, feed_dict={x: test_xs, y: test_ys, keep_prob:1.0}))
+#
+# #sort the data and save out the best in order
+# i = 0
+# allDataScores = []
+# while i<len(testData):
+#     Xs = np.zeros((NUM_IMAGES, 227, 227, 3))
+#     for j in range(0,i+NUM_IMAGES):
+#         if i+j >= len(testData):
+#             break
+#         Xs[j, :, :, :] = testData[i+j,0]
+#
+#     scores = sess.run(my_fc8, feed_dict={x: Xs, keep_prob:1.0})
+#     for j, score in enumerate(scores):
+#         if i + j < len(testData):
+#             allDataScores.append([testData[i+j,0],testData[i+j,1],score[0]])
+#     i+=NUM_IMAGES
+#
+# allDataScores = sorted(allDataScores, key=lambda e:e[2])
+# for i, data in enumerate(allDataScores):
+#     cv2.imwrite("./imgs/%02d_%0.2f_%0.2f.jpg"%(i,data[1],data[2]),data[0])
