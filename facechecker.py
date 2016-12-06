@@ -168,5 +168,20 @@ for i, data in enumerate(metadata):
                     cv2.imwrite(facepath, faceim)
 
                     trainingcsvwriter.writerow([facepath, median, mean])
+            else:
+                filename = "%04d.jpg" % i
+                outpath = os.path.join(dstDir, "notscored")
+                facepath = os.path.join(outpath, filename)
+                faceim = cv2.resize(faceim, (227, 227))
+                cv2.imwrite(facepath, faceim)
+
+    if "mturkrating" in data and len(data["mturkrating"]) > 1:
+        mean = np.mean(data["mturkrating"])
+        if mean > 7.0:
+            outpath = os.path.join(dstDir, "goodpics")
+            if not os.path.exists(outpath):
+                os.makedirs(outpath)
+            facepath = os.path.join(outpath, "%0.4f_%04d.jpg" % (mean,i))
+            cv2.imwrite(facepath, im)
 
 trainingcsvf.close()

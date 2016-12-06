@@ -195,6 +195,12 @@ train_step = optimizer.minimize(loss)
 
 #############################################################################################
 
+init = tf.initialize_all_variables()
+sess = tf.Session()
+sess.run(init)
+
+
+#load the images data
 np.random.seed(seed=1)
 trainingData = sys.argv[1]
 allData = []
@@ -226,12 +232,8 @@ def getTrainingBatch(size):
 def getTestData(size):
     return getBatch(testData, size)
 
+#training
 saver = tf.train.Saver()
-
-init = tf.initialize_all_variables()
-sess = tf.Session()
-sess.run(init)
-
 for i in range(10001):
     batch = getTrainingBatch(NUM_IMAGES)
     if i%100 == 0:
@@ -252,7 +254,7 @@ for i in range(10001):
 # allDataScores = []
 # while i<len(testData):
 #     Xs = np.zeros((NUM_IMAGES, 227, 227, 3))
-#     for j in range(0,i+NUM_IMAGES):
+#     for j in range(0,NUM_IMAGES):
 #         if i+j >= len(testData):
 #             break
 #         Xs[j, :, :, :] = testData[i+j,0]
