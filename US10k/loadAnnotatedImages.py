@@ -125,7 +125,7 @@ for t in range(len(testX)):
         weightedDistance = neighborBeauty / distanceToNeighbor
         weightedDistances[i] = weightedDistance
 
-    nearestWeightsIndexs = np.argsort(weightedDistances, 0)#[::-1]
+    nearestWeightsIndexs = np.argsort(weightedDistances, 0)[::-1]
 
     #find the optimal K size for nearest neighbor
     K = 20
