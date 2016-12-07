@@ -27,6 +27,8 @@ predictor = dlib.shape_predictor(FACESWAP_SHAPEPREDICTOR_PATH)
 
 for i, data in enumerate(demographicsData):
     im = cv2.imread(data['Filename'])
+    size = im.shape
+    r = (1, 1, size[1]-1, size[0]-1)
 
     rects = detector(im, 1)
     if len(rects) == 0:
@@ -36,24 +38,26 @@ for i, data in enumerate(demographicsData):
     landmarks = [(int(p[0, 0]), int(p[0, 1])) for p in landmarks]
 
     # delaunay triangulate face
-    subdiv = cv2.Subdiv2D((0, 0, im.shape[1], im.shape[0]))
+    subdiv = cv2.Subdiv2D((0, 0, size[1], size[0]))
     for p in landmarks:
         subdiv.insert(p)
 
+    cornerPts = [(1, 1),(size[1]-1, 1),(size[1]-1, size[0]-1),(1, size[0]-1)]
+    [subdiv.insert(p) for p in cornerPts]
+
     # Draw delaunay triangles
     triangleList = subdiv.getTriangleList()
-    size = im.shape
-    r = (0, 0, size[1], size[0])
+
 
     # Check if a point is inside a rectangle
     def rect_contains(rect, point):
-        if point[0] < rect[0]:
+        if point[0] <= rect[0]:
             return False
-        elif point[1] < rect[1]:
+        elif point[1] <= rect[1]:
             return False
-        elif point[0] > rect[2]:
+        elif point[0] >= rect[2]:
             return False
-        elif point[1] > rect[3]:
+        elif point[1] >= rect[3]:
             return False
         return True
 
@@ -64,11 +68,18 @@ for i, data in enumerate(demographicsData):
             if pteq(p1, p2):
                 return i
         return None
+    def triIsCornerPt(tri):
+        for pt in tri:
+            for cPt in cornerPts:
+                if pteq(pt,cPt):
+                    return True
+        return False
 
 
     lines = set()
     triangles = set()
     delaunay_color = (255, 0, 255)
+    cornerTriangles = []
     for t in triangleList:
         pt1 = (t[0], t[1])
         pt2 = (t[2], t[3])
@@ -95,6 +106,22 @@ for i, data in enumerate(demographicsData):
             cv2.line(im, pt2, pt3, delaunay_color, 1, 0)
             cv2.line(im, pt3, pt1, delaunay_color, 1, 0)
 
+        triPts = (pt1,pt2,pt3)
+        if triIsCornerPt(triPts):
+            triIndexs = []
+            for pt in triPts:
+                pi = getptindex(pt)
+                if pi:
+                    triIndexs.append(pi)
+                else:
+                    for j, cPt in enumerate(cornerPts):
+                        if pteq(pt, cPt):
+                            triIndexs.append(-(j+1))
+                            break
+            if len(triIndexs) == 3:
+                cornerTriangles.append(triIndexs)
+
+
     nplines = np.zeros((len(lines), 2), dtype=np.uint32)
     for i, line in enumerate(lines):
         pt1 = landmarks[line[0]]
@@ -104,9 +131,11 @@ for i, data in enumerate(demographicsData):
     nptriangles = np.zeros((len(triangles), 3), dtype=np.uint32)
     for i, triangle in enumerate(triangles):
         nptriangles[i, :] = triangle
+    npcornerTriangles = np.array(cornerTriangles)
 
     cv2.imshow("triangles", im)
     cv2.waitKey(-1)
 
     np.save("lines.npy", nplines)
     np.save("triangles.npy", nptriangles)
+    np.save("cornerTriangles.npy", npcornerTriangles)
