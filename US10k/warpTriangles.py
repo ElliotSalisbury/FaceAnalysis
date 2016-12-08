@@ -26,52 +26,17 @@ def warpTriangle(imSrc, imDst, tSrc, tDst) :
     imDst = imDst*(1-mask) + warpImage*mask
     return imDst
 
-if __name__ == '__main__' :
+def getCornerTrianglePts(im, cornerTriangles, landmarks):
+    cornerPts = np.array([(0,0), (im.shape[1], 0), (im.shape[1], im.shape[0]), (0, im.shape[0])])
 
-    filename1 = 'hillary_clinton.jpg'
-    filename2 = 'ted_cruz.jpg'
-    alpha = 0.5
-
-    # Read images
-    img1 = cv2.imread(filename1);
-    img2 = cv2.imread(filename2);
-
-    # Convert Mat to float data type
-    img1 = np.float32(img1)
-    img2 = np.float32(img2)
-
-    # Read array of corresponding points
-    points1 = readPoints(filename1 + '.txt')
-    points2 = readPoints(filename2 + '.txt')
-    points = [];
-
-    # Compute weighted average point coordinates
-    for i in xrange(0, len(points1)):
-        x = ( 1 - alpha ) * points1[i][0] + alpha * points2[i][0]
-        y = ( 1 - alpha ) * points1[i][1] + alpha * points2[i][1]
-        points.append((x,y))
-
-
-    # Allocate space for final output
-    imgMorph = np.zeros(img1.shape, dtype = img1.dtype)
-
-    # Read triangles from tri.txt
-    with open("tri.txt") as file :
-        for line in file :
-            x,y,z = line.split()
-
-            x = int(x)
-            y = int(y)
-            z = int(z)
-
-            t1 = [points1[x], points1[y], points1[z]]
-            t2 = [points2[x], points2[y], points2[z]]
-            t = [ points[x], points[y], points[z] ]
-
-            # Morph one triangle at a time.
-            morphTriangle(img1, img2, imgMorph, t1, t2, t, alpha)
-
-
-    # Display Result
-    cv2.imshow("Morphed Face", np.uint8(imgMorph))
-    cv2.waitKey(0)
+    #convert negative indexs to corner pts
+    cornerTriangles2 = np.zeros((cornerTriangles.shape[0],3,2))
+    for i, tri in enumerate(cornerTriangles):
+        triPts = np.zeros((3,2))
+        for j, t in enumerate(tri):
+            if t<0:
+                triPts[j,:] = cornerPts[-t - 1]
+            else:
+                triPts[j, :] = landmarks[t]
+        cornerTriangles2[i] = triPts
+    return cornerTriangles2
