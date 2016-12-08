@@ -17,6 +17,15 @@ LEFT_EYE_POINTS = list(range(42, 48))
 NOSE_POINTS = list(range(27, 35))
 JAW_POINTS = list(range(0, 17))
 
+#quickly change gender settings
+GENDER_WOMEN = 0
+GENDER_MEN = 1
+GENDER_TYPE = GENDER_MEN
+if GENDER_TYPE == GENDER_MEN:
+    dstFolder = "./men/"
+else:
+    dstFolder = "./women/"
+
 #US10K data location
 demographicscsv = "E:\\Facedata\\10k US Adult Faces Database\\Full Attribute Scores\\demographic & others labels\\demographic-others-labels-final.csv"
 imfolder = "E:\\Facedata\\10k US Adult Faces Database\\Face Images"
@@ -53,16 +62,16 @@ def getFacialFeatures(demographicsData):
     demographicsIndex = []
 
     print("calculating face features")
-    if os.path.isfile("./FaceFeatures.npy"):
-        allFaceLandmarks = np.load("FaceLandmarks.npy")
-        allFaceFeatures = np.load("FaceFeatures.npy")
-        allAttractiveness = np.load("FaceAttractiveness.npy")
-        demographicsIndex = np.load("DemographicsIndex.npy")
+    if os.path.isfile(os.path.join(dstFolder,"FaceFeatures.npy")):
+        allFaceLandmarks = np.load(os.path.join(dstFolder,"FaceLandmarks.npy"))
+        allFaceFeatures = np.load(os.path.join(dstFolder,"FaceFeatures.npy"))
+        allAttractiveness = np.load(os.path.join(dstFolder,"FaceAttractiveness.npy"))
+        demographicsIndex = np.load(os.path.join(dstFolder,"DemographicsIndex.npy"))
     else:
         for i, data in enumerate(demographicsData):
             attractiveScore = float(data['Attractive'])
             gender = int(data['Gender'])
-            if gender == 0 and not np.isnan(attractiveScore):
+            if gender == GENDER_TYPE and not np.isnan(attractiveScore):
                 im = cv2.imread(data['Filename'])
 
                 rects = detector(im, 1)
@@ -90,21 +99,21 @@ def getFacialFeatures(demographicsData):
         allFaceFeatures = np.array(allFaceFeatures)
         allAttractiveness = np.array(allAttractiveness)
         demographicsIndex = np.array(demographicsIndex)
-        np.save("FaceLandmarks.npy", allFaceLandmarks)
-        np.save("FaceFeatures.npy", allFaceFeatures)
-        np.save("FaceAttractiveness.npy", allAttractiveness)
-        np.save("DemographicsIndex.npy", demographicsIndex)
+        np.save(os.path.join(dstFolder,"FaceLandmarks.npy"), allFaceLandmarks)
+        np.save(os.path.join(dstFolder,"FaceFeatures.npy"), allFaceFeatures)
+        np.save(os.path.join(dstFolder,"FaceAttractiveness.npy"), allAttractiveness)
+        np.save(os.path.join(dstFolder,"DemographicsIndex.npy"), demographicsIndex)
 
     return allFaceLandmarks, allFaceFeatures, allAttractiveness, demographicsIndex
 
 def trainGP(trainX, trainY):
     print("training GP")
-    if os.path.isfile("./GP.p"):
+    if os.path.isfile(os.path.join(dstFolder,"GP.p")):
         gp = pickle.load(open("GP.p", "rb"))
     else:
         gp = gaussian_process.GaussianProcess(theta0=1e-2, thetaL=1e-4, thetaU=1e-1)
         gp.fit(trainX, trainY)
-        pickle.dump(gp, open("GP.p", "wb"))
+        pickle.dump(gp, open(os.path.join(dstFolder,"GP.p"), "wb"))
     return gp
 
 def findBestFeaturesKNN(myFeatures, gp, trainX, trainY):
@@ -161,11 +170,11 @@ def findBestFeaturesBiggerNose(myFeatures):
     for line in faceLines:
         weight = 1
         if line[0] in NOSE_POINTS and line[1] in NOSE_POINTS:
-            weight = 0.8
+            weight = 1.4
         if line[0] in LEFT_EYE_POINTS and line[1] in LEFT_EYE_POINTS:
-            weight = 1.2
-        elif line[0] in RIGHT_EYE_POINTS and line[1] in RIGHT_EYE_POINTS:
-            weight = 1.2
+            weight = 1.5
+        # elif line[0] in RIGHT_EYE_POINTS and line[1] in RIGHT_EYE_POINTS:
+        #     weight = 1.2
         # elif line[0] in MOUTH_POINTS and line[1] in MOUTH_POINTS:
         #     weight = 0.9
         noseScaling.append(weight)
@@ -255,8 +264,8 @@ if __name__ == "__main__":
 
         #get a set of face features that are more beautiful
         optimalNewFaceFeaturesKNN = findBestFeaturesKNN(myFeatures, gp, trainX, trainY)
-        # optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, gp)
-        optimalNewFaceFeaturesGP = findBestFeaturesBiggerNose(myFeatures)
+        optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, gp)
+        # optimalNewFaceFeaturesGP = findBestFeaturesBiggerNose(myFeatures)
 
         #construct the landmarks that satisify the distance constraints of the features
         newLandmarksKNN = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesKNN)
@@ -281,6 +290,6 @@ if __name__ == "__main__":
             cv2.circle(im, p, 3, (0, 255, 255), thickness=-1)
         displayIm[:, im.shape[1] * 3:, :] = im.copy()
 
-        cv2.imshow("face", displayIm)
-        cv2.waitKey(-1)
-        cv2.imwrite("./imgs/%04d.jpg" % t, displayIm)
+        # cv2.imshow("face", displayIm)
+        # cv2.waitKey(-1)
+        cv2.imwrite(os.path.join(dstFolder,"imgs/%04d.jpg" % t), displayIm)
