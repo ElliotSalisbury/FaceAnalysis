@@ -19,29 +19,40 @@ reddit = praw.Reddit(user_agent=my_user_agent,
 
 imgur = ImgurClient(imgur_client_id, imgur_client_secret)
 
-def getImgUrlsFromAlbum(albumId):
-    album = imgur.get_album(albumId)
-
+def getImgUrlsFromAlbum(albumId, is_gallery=False):
     imgurls = []
-    for image in album.images:
-        imgurls.append(image['link'])
+    try:
+        if is_gallery:
+            album = imgur.gallery_item(albumId)
+        else:
+            album = imgur.get_album(albumId)
+
+        for image in album.images:
+            imgurls.append(image['link'])
+    except Exception as e:
+        print(str(e))
+
     return imgurls
 
 def downloadImages(dstPath, imgurls):
     for imageurl in imgurls:
-        filename = imageurl.split('/')[-1]
-        filePath = os.path.join(dstPath, filename)
-        urllib.urlretrieve(imageurl, filePath)
+        try:
+            filename = imageurl.split('/')[-1]
+            filePath = os.path.join(dstPath, filename)
+            urllib.urlretrieve(imageurl, filePath)
+        except Exception as e:
+            print(str(e))
 
 
 reAgeGender = re.compile("(\d+)[\s]*([M|F])")
 reGenderAge = re.compile("([M|F])[\s]*(\d+)")
 reRatingSlash = re.compile("(\d+)(\.\d+)?\/10")
 reImgurAlbum = re.compile("imgur\.com\/a\/(\w+)")
+reImgurGallery = re.compile("imgur\.com\/gallery\/(\w+)")
 
 rateme = reddit.subreddit('rateme')
-# submissions = rateme.submissions()
-submissions = rateme.hot(limit=40)
+submissions = rateme.submissions()
+# submissions = rateme.hot(limit=40)
 for submission in submissions:
     title = submission.title.upper()
 
@@ -66,7 +77,7 @@ for submission in submissions:
             rating = result.group(1)
             decimal = result.group(2)
             if int(rating) <= 10:
-                ratingObject = (age,gender,submission.author.name,top_level_comment.author.name, rating, decimal)
+                ratingObject = (submission.title, age, gender, str(submission.author), str(top_level_comment.author), rating, decimal, top_level_comment.body)
                 ratings.append(ratingObject)
 
     #if we have enough ratings then lets grab the images
@@ -77,10 +88,18 @@ for submission in submissions:
             url = submission.url
             albumId = url.split("/")[-1]
             imgurls = getImgUrlsFromAlbum(albumId)
+        elif "imgur.com/gallery/" in submission.url:
+            url = submission.url
+            albumId = url.split("/")[-1]
+            imgurls = getImgUrlsFromAlbum(albumId, is_gallery=True)
         elif submission.is_self:
             result = reImgurAlbum.search(submission.selftext)
             if result:
                 imgurls = getImgUrlsFromAlbum(result.group(1))
+            else:
+                result = reImgurGallery.search(submission.selftext)
+                if result:
+                    imgurls = getImgUrlsFromAlbum(result.group(1), is_gallery=True)
         else:
             print(submission.url)
             continue
@@ -96,5 +115,5 @@ for submission in submissions:
             ratingsPath = os.path.join(dstPath,"ratings.csv")
             with open(ratingsPath, 'wb') as f:
                 writer = csv.writer(f)
-                writer.writerow(("Age","Gender","RatedUsername","RatingUsername","Rating","Decimal"))
+                writer.writerow(("Submission Title","Submission Age","Submission Gender","Submission Author","Rating Author","Rating","Decimal", "Rating Text"))
                 writer.writerows(ratings)
