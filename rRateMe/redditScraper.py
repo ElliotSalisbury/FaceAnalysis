@@ -40,7 +40,7 @@ def downloadImages(dstPath, imgurls):
         try:
             filename = imageurl.split('/')[-1]
             filePath = os.path.join(dstPath, filename)
-            urllib.urlretrieve(imageurl, filePath)
+            urllib.request.urlretrieve(imageurl, filePath)
         except Exception as e:
             print(str(e))
 
@@ -71,7 +71,7 @@ for submission in submissions:
             continue
 
     #skip the ones weve done already
-    if os.path.exists("./data/%s_%s_%s"%(age,gender,submission.id)):
+    if os.path.exists("E:/Facedata/RateMe/%s_%s_%s"%(age,gender,submission.id)):
         continue
 
     #check the comments for ratings
@@ -113,7 +113,7 @@ for submission in submissions:
             continue
 
         if imgurls:
-            dstPath = "./data/%s_%s_%s"%(age,gender,submission.id)
+            dstPath = "E:/Facedata/RateMe/%s_%s_%s"%(age,gender,submission.id)
             if not os.path.exists(dstPath):
                 os.makedirs(dstPath)
 
@@ -121,7 +121,7 @@ for submission in submissions:
 
             #save the ratings file
             ratingsPath = os.path.join(dstPath,"ratings.csv")
-            with open(ratingsPath, 'wb') as f:
+            with open(ratingsPath, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(("Submission Title", "Submission Age","Submission Gender","Submission Author","Rating Author","Rating","Decimal", "Rating Text"))
                 writer.writerows(ratings)
