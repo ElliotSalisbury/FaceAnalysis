@@ -109,7 +109,7 @@ def getFacialFeatures(demographicsData):
 def trainGP(trainX, trainY):
     print("training GP")
     if os.path.isfile(os.path.join(dstFolder,"GP.p")):
-        gp = pickle.load(open("GP.p", "rb"))
+        gp = pickle.load(open(os.path.join(dstFolder,"GP.p"), "rb"))
     else:
         gp = gaussian_process.GaussianProcess(theta0=1e-2, thetaL=1e-4, thetaU=1e-1)
         gp.fit(trainX, trainY)
