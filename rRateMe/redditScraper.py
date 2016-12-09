@@ -77,7 +77,10 @@ for submission in submissions:
             rating = result.group(1)
             decimal = result.group(2)
             if int(rating) <= 10:
-                ratingObject = (submission.title, age, gender, str(submission.author), str(top_level_comment.author), rating, decimal, top_level_comment.body)
+                titleString = submission.title.encode("ASCII", "ignore")
+                commentString = top_level_comment.body.encode("ASCII", "ignore")
+
+                ratingObject = (titleString, age, gender, str(submission.author), str(top_level_comment.author), rating, decimal, commentString)
                 ratings.append(ratingObject)
 
     #if we have enough ratings then lets grab the images
@@ -115,5 +118,5 @@ for submission in submissions:
             ratingsPath = os.path.join(dstPath,"ratings.csv")
             with open(ratingsPath, 'wb') as f:
                 writer = csv.writer(f)
-                writer.writerow(("Submission Title","Submission Age","Submission Gender","Submission Author","Rating Author","Rating","Decimal", "Rating Text"))
+                writer.writerow(("Submission Title", "Submission Age","Submission Gender","Submission Author","Rating Author","Rating","Decimal", "Rating Text"))
                 writer.writerows(ratings)
