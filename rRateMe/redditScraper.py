@@ -5,6 +5,7 @@ import urllib
 import os
 import sys
 import csv
+import time
 
 my_user_agent = 'RateMeScraper'
 reddit_client_id = sys.argv[1]
@@ -69,6 +70,10 @@ for submission in submissions:
         else:
             continue
 
+    #skip the ones weve done already
+    if os.path.exists("./data/%s_%s_%s"%(age,gender,submission.id)):
+        continue
+
     #check the comments for ratings
     ratings = []
     for top_level_comment in submission.comments:
@@ -120,3 +125,5 @@ for submission in submissions:
                 writer = csv.writer(f)
                 writer.writerow(("Submission Title", "Submission Age","Submission Gender","Submission Author","Rating Author","Rating","Decimal", "Rating Text"))
                 writer.writerows(ratings)
+
+        time.sleep(8) # less than 500 calls per hour
