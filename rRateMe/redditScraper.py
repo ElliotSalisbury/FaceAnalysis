@@ -105,7 +105,7 @@ for submission in submissions:
             continue
 
         if imgurls:
-            dstPath = "%s_%s_%s"%(age,gender,submission.id)
+            dstPath = "./data/%s_%s_%s"%(age,gender,submission.id)
             if not os.path.exists(dstPath):
                 os.makedirs(dstPath)
 
