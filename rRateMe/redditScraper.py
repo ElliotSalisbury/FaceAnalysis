@@ -45,8 +45,8 @@ def downloadImages(dstPath, imgurls):
             print(str(e))
 
 
-reAgeGender = re.compile("(\d+)[\s]*([M|F])")
-reGenderAge = re.compile("([M|F])[\s]*(\d+)")
+reAgeGender = re.compile("(\d+)[\s]*([MF])")
+reGenderAge = re.compile("([MF])[\s]*(\d+)")
 reRatingSlash = re.compile("(\d+)(\.\d+)?\/10")
 reImgurAlbum = re.compile("imgur\.com\/a\/(\w+)")
 reImgurGallery = re.compile("imgur\.com\/gallery\/(\w+)")
