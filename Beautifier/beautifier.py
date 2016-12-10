@@ -42,21 +42,21 @@ def findBestFeaturesKNN(myFeatures, gp, trainX, trainY):
         features = trainX[indexs]
         kNewFeatures[k, :] = np.sum((weights * features), axis=0) / np.sum(weights)
 
-    y_pred, sigma2_pred = gp.predict(kNewFeatures, eval_MSE=True)
+    y_pred = gp.predict(kNewFeatures)
     bestK = np.argmax(y_pred, 0)
 
     return kNewFeatures[bestK]
 
 def findBestFeaturesOptimisation(myFeatures, gp):
     print("finding optimal face features optimisation")
-    # iterCount = 0
+    iterCount = 0
     def GPCostFunction(faceFeatures):
-        # nonlocal iterCount
-        y_pred, sigma2_pred = gp.predict([faceFeatures], eval_MSE=True)
+        nonlocal iterCount
+        y_pred, sigma2_pred = gp.predict([faceFeatures], return_std=True)
 
-        # iterCount += 1
-        # if iterCount % 100 == 0:
-        #     print("%i - %0.2f - %0.2f"%(iterCount, myActualScore, y_pred))
+        iterCount += 1
+        if iterCount % 100 == 0:
+            print("%i - %0.2f - %0.2f"%(iterCount, y_pred, sigma2_pred))
 
         return (1-(y_pred/5)) + sigma2_pred
 
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     ratemedf = loadRateMeFacialFeatures()
 
     us10kwomen = us10kdf.loc[us10kdf['gender'] == 'F']
-    ratemewomen = ratemedf.loc[us10kdf['gender'] == 'F']
+    ratemewomen = ratemedf.loc[ratemedf['gender'] == 'F']
     ratemewomen = ratemewomen.loc[ratemewomen['attractiveness'] >= 8]
 
     #split into training sets
@@ -127,9 +127,9 @@ if __name__ == "__main__":
 
     #load the GP that learnt attractiveness
     ratemegp = pickle.load(
-        open(os.path.join(dstFolder, "C:\\Users\\ellio\\PycharmProjects\\circlelines\\rRateMe\\GP_F.p"), "rb"))
+        open("C:\\Users\\ellio\\PycharmProjects\\circlelines\\rRateMe\\GP_F.p", "rb"))
     us10kgp = pickle.load(
-        open(os.path.join(dstFolder, "C:\\Users\\ellio\\PycharmProjects\\circlelines\\US10k\\GP_F.p"), "rb"))
+        open("C:\\Users\\ellio\\PycharmProjects\\circlelines\\US10k\\GP_F.p", "rb"))
 
     print("begin beautification")
     # for each of the test set, make them more beautiful
@@ -142,53 +142,39 @@ if __name__ == "__main__":
 
         #get a set of face features that are more beautiful
         optimalNewFaceFeaturesKNN = findBestFeaturesKNN(myFeatures, us10kgp, trainX, trainY)
-        optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, us10kgp)
-        # optimalNewFaceFeaturesGP = findBestFeaturesBiggerNose(myFeatures)
+        # optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, us10kgp)
 
         #construct the landmarks that satisify the distance constraints of the features
         newLandmarksKNN = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesKNN)
-        newLandmarksGP = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesGP)
+        # newLandmarksGP = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesGP)
 
         #morph the face
         im = cv2.imread(myImpath)
 
         beautifulFaceKNN = warpFace(im, myLandmarks, newLandmarksKNN)
-        beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
+        # beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
 
         displayIm = np.zeros((im.shape[0]*2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
         displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
         displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = beautifulFaceKNN.copy()
-        displayIm[:im.shape[0], im.shape[1]*2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
+        # displayIm[:im.shape[0], im.shape[1]*2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
 
-        # draw the landmarks
-        for i, landmark in enumerate(newLandmarksKNN):
-            op = (int(myLandmarks[i][0]), int(myLandmarks[i][1]))
-            cv2.circle(im, op, 3, (255, 0, 255), thickness=-1)
-            p = (int(landmark[0]), int(landmark[1]))
-            cv2.circle(im, p, 3, (0, 255, 255), thickness=-1)
-        displayIm[:im.shape[0], im.shape[1] * 3:, :] = im.copy()
 
         #TEST RATE ME
         # get a set of face features that are more beautiful
         optimalNewFaceFeaturesKNN = findBestFeaturesKNN(myFeatures, ratemegp, trainXRateMe, trainYRateMe)
-        optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, ratemegp)
+        # optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, ratemegp)
         # optimalNewFaceFeaturesGP = findBestFeaturesBiggerNose(myFeatures)
 
         # construct the landmarks that satisify the distance constraints of the features
         newLandmarksKNN = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesKNN)
-        newLandmarksGP = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesGP)
+        # newLandmarksGP = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesGP)
 
         beautifulFaceKNN = warpFace(im, myLandmarks, newLandmarksKNN)
-        beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
-
-        # morph the face
-        im = cv2.imread(myImpath)
-
-        beautifulFaceKNN = warpFace(im, myLandmarks, newLandmarksKNN)
-        beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
+        # beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
         displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = beautifulFaceKNN.copy()
-        displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
+        # displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
 
-        cv2.imshow("face", displayIm)
-        cv2.waitKey(-1)
-        # cv2.imwrite(os.path.join(dstFolder,"%04d.jpg" % t), displayIm)
+        # cv2.imshow("face", displayIm)
+        # cv2.waitKey(-1)
+        cv2.imwrite(os.path.join(dstFolder,"%04d.jpg" % t), displayIm)

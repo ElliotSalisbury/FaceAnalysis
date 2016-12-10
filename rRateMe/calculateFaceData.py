@@ -57,6 +57,7 @@ def saveFacialFeatures(combinedcsvpath):
                 allData.append(dataDict)
 
     allDataDF = pd.DataFrame(allData)
+    allDataDF = allDataDF.sample(frac=1).reset_index(drop=True)
     allDataDF.to_pickle(os.path.join(saveFolder,"RateMeData.p"))
 
     return allDataDF
@@ -69,5 +70,6 @@ if __name__ == "__main__":
     combinedPath = os.path.join(rateMeFolder, "combined.csv")
 
     df = saveFacialFeatures(combinedPath)
+    # df = loadRateMeFacialFeatures()
 
     trainGP(df, saveFolder)

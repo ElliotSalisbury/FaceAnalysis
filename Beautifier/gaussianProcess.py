@@ -1,4 +1,4 @@
-from sklearn import gaussian_process
+import sklearn.gaussian_process
 import pickle
 import os
 import numpy as np
@@ -19,6 +19,6 @@ def trainGP(df, dstPath, trainPercentage=1.0):
         trainY = np.array(trainY.tolist())
         # trainY += np.random.normal(scale=0.001, size=trainY.shape)
 
-        gp = gaussian_process.GaussianProcess(theta0=1e-2, thetaL=1e-4, thetaU=1e-1)
+        gp = sklearn.gaussian_process.GaussianProcessRegressor(normalize_y=True)
         gp.fit(trainX, trainY)
         pickle.dump(gp, open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))
