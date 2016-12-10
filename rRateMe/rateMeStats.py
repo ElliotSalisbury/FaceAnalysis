@@ -1,14 +1,16 @@
 import os
 import csv
+import pandas as pd
 
 RateMeFolder = "E:\\Facedata\\RateMe"
+combinedPath = os.path.join(RateMeFolder, "combined.csv")
 
 submissionFolders = [x[0] for x in os.walk(RateMeFolder)]
 
 #compile into single file
-with open(os.path.join(RateMeFolder, "combined.csv"), 'w', newline='') as wf:
+with open(combinedPath, 'w', newline='') as wf:
     writer = csv.writer(wf)
-    writer.writerow(("Submission Title", "Submission Age", "Submission Gender", "Submission Author", "Rating Author","Rating", "Decimal", "Rating Text"))
+    writer.writerow(("Folder", "Submission Title", "Submission Age", "Submission Gender", "Submission Author", "Rating Author","Rating", "Decimal", "Rating Text"))
 
     for folder in submissionFolders:
         ratingsPath = os.path.join(folder, "ratings.csv")
@@ -22,4 +24,11 @@ with open(os.path.join(RateMeFolder, "combined.csv"), 'w', newline='') as wf:
             for i, row in enumerate(reader):
                 if i==0:
                     continue
-                writer.writerow(row)
+                writer.writerow([folder,] + row)
+
+# #load the data, and drop the rating text we wont need it
+# df = pd.read_csv(combinedPath)
+# df.drop('Rating Text', 1)
+#
+# meanRatings = df["Rating"].groupby(df["Submission Gender"]).mean()
+# print(meanRatings)

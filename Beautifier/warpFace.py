@@ -2,6 +2,9 @@ import numpy as np
 import cv2
 import sys
 
+FACE_TRIANGLES = np.load("triangles.npy")
+CORNER_TRIANGLES = np.load("cornerTriangles.npy")
+
 # Apply affine transform calculated using srcTri and dstTri to src and
 # output an image of size.
 def applyAffineTransform(src, srcTri, dstTri) :
@@ -26,12 +29,12 @@ def warpTriangle(imSrc, imDst, tSrc, tDst) :
     imDst = imDst*(1-mask) + warpImage*mask
     return imDst
 
-def getCornerTrianglePts(im, cornerTriangles, landmarks):
+def getCornerTrianglePts(im, landmarks):
     cornerPts = np.array([(0,0), (im.shape[1], 0), (im.shape[1], im.shape[0]), (0, im.shape[0])])
 
     #convert negative indexs to corner pts
-    cornerTriangles2 = np.zeros((cornerTriangles.shape[0],3,2))
-    for i, tri in enumerate(cornerTriangles):
+    cornerTriangles2 = np.zeros((CORNER_TRIANGLES.shape[0],3,2))
+    for i, tri in enumerate(CORNER_TRIANGLES):
         triPts = np.zeros((3,2))
         for j, t in enumerate(tri):
             if t<0:
@@ -40,3 +43,24 @@ def getCornerTrianglePts(im, cornerTriangles, landmarks):
                 triPts[j, :] = landmarks[t]
         cornerTriangles2[i] = triPts
     return cornerTriangles2
+
+def warpFace(im, oldLandmarks, newLandmarks):
+    print("morphing face")
+    newIm = im.copy()
+    # newIm = np.zeros(im.shape)
+    oldCornerTrianglePts = getCornerTrianglePts(im, oldLandmarks)
+    newCornerTrianglePts = getCornerTrianglePts(im, newLandmarks)
+
+    for ti in range(len(newCornerTrianglePts)):
+        oldTriangle = oldCornerTrianglePts[ti]
+        newTriangle = newCornerTrianglePts[ti]
+
+        newIm = warpTriangle(im, newIm, oldTriangle, newTriangle)
+
+    for triangle in FACE_TRIANGLES:
+        oldTriangle = oldLandmarks[triangle]
+        newTriangle = newLandmarks[triangle]
+
+        newIm = warpTriangle(im, newIm, oldTriangle, newTriangle)
+    newIm = np.uint8(newIm)
+    return newIm
