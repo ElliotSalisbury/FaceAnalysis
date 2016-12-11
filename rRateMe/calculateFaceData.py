@@ -8,17 +8,17 @@ from Beautifier.faceFeatures import getFaceFeatures
 
 MAX_IM_SIZE = 512
 
-def ensureImageLessThanMax(im):
+def ensureImageLessThanMax(im, maxsize=MAX_IM_SIZE):
     height, width, depth = im.shape
-    if height > MAX_IM_SIZE or width > MAX_IM_SIZE:
+    if height > maxsize or width > maxsize:
 
         if width > height:
-            ratio = MAX_IM_SIZE / float(width)
-            width = MAX_IM_SIZE
+            ratio = maxsize / float(width)
+            width = maxsize
             height = int(height * ratio)
         else:
-            ratio = MAX_IM_SIZE / float(height)
-            height = MAX_IM_SIZE
+            ratio = maxsize / float(height)
+            height = maxsize
             width = int(width * ratio)
         im = cv2.resize(im,(width,height))
     return im

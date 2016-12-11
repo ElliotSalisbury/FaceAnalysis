@@ -2,6 +2,9 @@ import numpy as np
 import cv2
 from faceFeatures import getFaceFeatures
 import pickle
+from beautifier import findBestFeaturesKNN,calculateLandmarksfromFeatures
+from warpFace import warpFace
+from US10K import loadUS10KFacialFeatures
 
 MAX_IM_SIZE = 512
 
@@ -24,9 +27,19 @@ if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
 
     gp = pickle.load(
-        open("C:\\Users\\Elliot\\PycharmProjects\\FaceAnalysis\\rRateMe\\GP_M.p", "rb"))
+        open("C:\\Users\\Elliot\\PycharmProjects\\FaceAnalysis\\US10K\\GP_M.p", "rb"))
+    us10kdf = loadUS10KFacialFeatures()
+
+    us10kwomen = us10kdf.loc[us10kdf['gender'] == 'M']
+
+    #split into training sets
+    trainSize = int(us10kwomen.shape[0] * 0.8)
+    traindf = us10kwomen[:trainSize]
+    trainX = np.array(traindf["facefeatures"].as_matrix().tolist())
+    trainY = np.array(traindf["attractiveness"].as_matrix().tolist())
 
     scores = []
+    count = 0
     while(True):
         # Capture frame-by-frame
         ret, frame = cap.read()
@@ -34,7 +47,16 @@ if __name__ == "__main__":
         frame = ensureImageLessThanMax(frame)
 
         landmarks, features = getFaceFeatures(frame)
+
+
         if features is not None:
+            if count %60 == 0:
+                optimalNewFaceFeaturesKNN = findBestFeaturesKNN(features, gp, trainX, trainY)
+            count+=1
+            newLandmarksKNN = calculateLandmarksfromFeatures(landmarks, optimalNewFaceFeaturesKNN)
+            beautifulFaceKNN = warpFace(frame, landmarks, newLandmarksKNN)
+
+
             # draw the landmarks
             for i, landmark in enumerate(landmarks):
                 p = (int(landmark[0]), int(landmark[1]))
@@ -49,7 +71,7 @@ if __name__ == "__main__":
             cv2.putText(frame, "%0.3f"%avg, p, font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         # Display the resulting frame
-        cv2.imshow('frame',frame)
+        cv2.imshow('frame',beautifulFaceKNN)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
