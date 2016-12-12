@@ -20,7 +20,7 @@ JAW_POINTS = list(range(0, 17))
 
 faceLines = np.load("C:\\Users\\ellio\\PycharmProjects\\circlelines\\Beautifier\\lines.npy")
 
-def findBestFeaturesKNN(myFeatures, gp, trainX, trainY):
+def findBestFeaturesKNN(myFeatures, pca, gp, trainX, trainY):
     print("finding optimal face features KNN")
     # calculate nearest beauty weighted distance to neighbours
     weightedDistances = np.zeros((len(trainX), 1))
@@ -43,17 +43,18 @@ def findBestFeaturesKNN(myFeatures, gp, trainX, trainY):
         features = trainX[indexs]
         kNewFeatures[k, :] = np.sum((weights * features), axis=0) / np.sum(weights)
 
-    y_pred = gp.predict(kNewFeatures)
+    reducedFeatures = pca.transform(kNewFeatures)
+    y_pred = gp.predict(reducedFeatures)
     bestK = np.argmax(y_pred, 0)
 
     return kNewFeatures[bestK]
 
-def findBestFeaturesOptimisation(myFeatures, gp):
+def findBestFeaturesOptimisation(myFeatures, pca, gp):
     print("finding optimal face features optimisation")
     iterCount = 0
-    def GPCostFunction(faceFeatures):
+    def GPCostFunction(reducedFeatures):
         nonlocal iterCount
-        y_pred, sigma2_pred = gp.predict([faceFeatures], return_std=True)
+        y_pred, sigma2_pred = gp.predict([reducedFeatures], return_std=True)
 
         iterCount += 1
         if iterCount % 100 == 0:
@@ -61,12 +62,14 @@ def findBestFeaturesOptimisation(myFeatures, gp):
 
         return -y_pred / sigma2_pred
 
-    bounds = np.zeros((len(myFeatures),2))
-    bounds[:, 0] = myFeatures - 0.15
-    bounds[:,1] = myFeatures + 0.15
+    reducedFeatures = pca.transform(myFeatures)
 
-    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
-    return optimalNewFaceFeatures.x
+    bounds = np.zeros((len(reducedFeatures),2))
+    bounds[:, 0] = reducedFeatures - 0.15
+    bounds[:,1] = reducedFeatures + 0.15
+
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, reducedFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    return pca.inverse_transform(optimalNewFaceFeatures.x)
 
 def solveForEyes(oldLandmarks, newLandmarks):
     for eye_points in [LEFT_EYE_POINTS, RIGHT_EYE_POINTS]:
@@ -162,7 +165,7 @@ if __name__ == "__main__":
         myImpath = testI[t]
 
         #get a set of face features that are more beautiful
-        optimalNewFaceFeaturesKNN = findBestFeaturesKNN(myFeatures, us10kgp, trainX, trainY)
+        optimalNewFaceFeaturesKNN = findBestFeaturesKNN(myFeatures, us10kpca, us10kgp, trainX, trainY)
         # optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, us10kgp)
 
         #construct the landmarks that satisify the distance constraints of the features

@@ -1,7 +1,13 @@
+import sklearn.decomposition
 import sklearn.gaussian_process
 import pickle
 import os
 import numpy as np
+
+def fitPCA(trainX):
+    pca = sklearn.decomposition.PCA(n_components=35)
+    pca.fit(trainX)
+    return pca
 
 def trainGP(df, dstPath, trainPercentage=0.9):
     #we need to train for both male and female
@@ -17,20 +23,25 @@ def trainGP(df, dstPath, trainPercentage=0.9):
         testX = np.array(group["facefeatures"][trainSize:].as_matrix().tolist())
         testY = np.array(group["attractiveness"][trainSize:].as_matrix().tolist())
 
+        pca = fitPCA(trainX)
+        reducedTrainX = pca.transform(trainX)
+        reducedTestX = pca.transform(testX)
+
         bestScore = -100000
         bestGP = None
-        kernel = sklearn.gaussian_process.kernels.ConstantKernel(1.4, constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
+        for alpha in np.linspace(0.01,0.1, 20):
+            for constant in np.linspace(1.0, 3.0, 30):
+                kernel = sklearn.gaussian_process.kernels.ConstantKernel(constant, constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
 
-        alpha = 0.0337
-        gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
-        gp.fit(trainX.copy(), trainY.copy())
+                gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
+                gp.fit(reducedTrainX, trainY)
 
-        score = gp.score(testX,testY)
-        if score > bestScore:
-            bestScore = score
-            bestGP = gp
+                score = gp.score(reducedTestX,testY)
+                if score > bestScore:
+                    bestScore = score
+                    bestGP = gp
 
-        print("gp (%0.4f, %0.4f) = %0.10f"%(alpha,1.4,score))
+                print("gp (%0.4f, %0.4f) = %0.10f"%(alpha,constant,score))
 
         if bestGP is not None:
-            pickle.dump(bestGP, open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))
+            pickle.dump((pca,bestGP), open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))
