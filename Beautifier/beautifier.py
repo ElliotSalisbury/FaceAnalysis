@@ -67,22 +67,39 @@ def findBestFeaturesOptimisation(myFeatures, gp):
     optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
     return optimalNewFaceFeatures.x
 
+def solveForEyes(oldLandmarks, newLandmarks):
+    for eye_points in [LEFT_EYE_POINTS, RIGHT_EYE_POINTS]:
+        oldEyeLandmarks = oldLandmarks[eye_points]
+        newEyeLandmarks = newLandmarks[eye_points]
+
+        warpMat = cv2.estimateRigidTransform(np.float32(oldEyeLandmarks), np.float32(newEyeLandmarks), fullAffine=False)
+        warpMat = np.vstack([warpMat, [0, 0, 1]])
+
+        oldEyeLandmarks1 = np.hstack([oldEyeLandmarks, np.ones((oldEyeLandmarks.shape[0],1))])
+        transformed = np.zeros(oldEyeLandmarks1.shape)
+        for i, landmark in enumerate(oldEyeLandmarks1):
+            transformed[i,:] = (np.matrix(warpMat)*landmark[:,np.newaxis]).T
+
+        newLandmarks[eye_points] = transformed[:,:2]
+    return newLandmarks
+
+# construct the weighting so that distances between the same features cost more to change
+#effectively changing the position of the features in the face, but less of the shape of the feature itself
+alphaWeighting = []
+for line in faceLines:
+    weight = 1
+    if line[0] in LEFT_EYE_POINTS and line[1] in LEFT_EYE_POINTS:
+        weight = 10
+    elif line[0] in RIGHT_EYE_POINTS and line[1] in RIGHT_EYE_POINTS:
+        weight = 10
+    elif line[0] in MOUTH_POINTS and line[1] in MOUTH_POINTS:
+        weight = 10
+    elif line[0] in NOSE_POINTS and line[1] in NOSE_POINTS:
+        weight = 10
+    alphaWeighting.append(weight)
+alphaWeighting = np.array(alphaWeighting)
 def calculateLandmarksfromFeatures(originalLandmarks, optimalFaceFeatures):
     print("minimising cost of distance constraints from facial features")
-
-    # construct the weighting so that distances between the same features cost more to change
-    #effectively changing the position of the features in the face, but less of the shape of the feature itself
-    alphaWeighting = []
-    for line in faceLines:
-        weight = 1
-        if line[0] in LEFT_EYE_POINTS and line[1] in LEFT_EYE_POINTS:
-            weight = 10
-        elif line[0] in RIGHT_EYE_POINTS and line[1] in RIGHT_EYE_POINTS:
-            weight = 10
-        elif line[0] in MOUTH_POINTS and line[1] in MOUTH_POINTS:
-            weight = 10
-        alphaWeighting.append(weight)
-    alphaWeighting = np.array(alphaWeighting)
 
     # cost function used to minimize the stress between face features
     def costFunction(landmarks):
@@ -98,6 +115,8 @@ def calculateLandmarksfromFeatures(originalLandmarks, optimalFaceFeatures):
 
     newLandmarks = scipy.optimize.minimize(costFunction, normLandmarks)
     newLandmarks = np.reshape(newLandmarks.x, (-1, 2)) * normalizingTerm
+
+    newLandmarks = solveForEyes(originalLandmarks, newLandmarks)
 
     return newLandmarks
 
