@@ -3,9 +3,11 @@ import cv2
 import sys
 from skimage.transform import PiecewiseAffineTransform, warp
 import skimage
+import os
 
-FACE_TRIANGLES = np.load("triangles.npy")
-CORNER_TRIANGLES = np.load("cornerTriangles.npy")
+scriptDir = os.path.dirname(__file__)
+FACE_TRIANGLES = np.load(os.path.join(scriptDir,"triangles.npy"))
+CORNER_TRIANGLES = np.load(os.path.join(scriptDir,"cornerTriangles.npy"))
 
 # Apply affine transform calculated using srcTri and dstTri to src and
 # output an image of size.
@@ -67,12 +69,13 @@ def warpFaceOld(im, oldLandmarks, newLandmarks):
     newIm = np.uint8(newIm)
     return newIm
 
-def warpFace(im, oldLandmarks, newLandmarks):
+def warpFace(im, oldLandmarks, newLandmarks, justFace=False):
     print("warping face")
-    cornerPts = np.array([(0, 0), (im.shape[1], 0), (im.shape[1], im.shape[0]), (0, im.shape[0])])
+    if not justFace:
+        cornerPts = np.array([(0, 0), (im.shape[1], 0), (im.shape[1], im.shape[0]), (0, im.shape[0])])
 
-    oldLandmarks = np.append(oldLandmarks, cornerPts, axis=0)
-    newLandmarks = np.append(newLandmarks, cornerPts, axis=0)
+        oldLandmarks = np.append(oldLandmarks, cornerPts, axis=0)
+        newLandmarks = np.append(newLandmarks, cornerPts, axis=0)
 
     tform = PiecewiseAffineTransform()
     tform.estimate(newLandmarks,oldLandmarks)

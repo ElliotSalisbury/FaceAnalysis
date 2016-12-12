@@ -69,14 +69,14 @@ def findBestFeaturesKNN(myFeatures, trainX, trainY, beautyAim):
     return kNewFeatures[K-1]
 
 def averageFaces(df):
-    im = cv2.imread("C:\\Users\\Elliot\\Desktop\\Chloe-Grace-Moretz.jpg")
-    im = ensureImageLessThanMax(im, maxsize=256)
+    startIm = cv2.imread("E:\\Facedata\\10k US Adult Faces Database\\Face Images\\Aaron_Nickell_11_oval.jpg")
+    startIm = ensureImageLessThanMax(startIm, maxsize=256)
 
-    hotnessRange = range(4,10)
+    hotnessRange = range(5,9)
 
-    landmarks, faceFeatures = getFaceFeatures(im)
+    startLandmarks, startFaceFeatures = getFaceFeatures(startIm)
 
-    imfaces = np.zeros((im.shape[0]*2, im.shape[1]*len(hotnessRange), im.shape[2]), dtype=np.uint8)
+    imfaces = np.zeros((startIm.shape[0]*2, startIm.shape[1]*len(hotnessRange), startIm.shape[2]), dtype=np.float32)
 
     grouped = df.groupby("gender")
     for i, (gender, group) in enumerate(grouped):
@@ -84,26 +84,48 @@ def averageFaces(df):
             hotgroup = group.loc[group['attractiveness'] >= hotness-0.5]
             hotgroup = hotgroup.loc[hotgroup['attractiveness'] < hotness+0.5]
 
+            hotImpaths = np.array(hotgroup["impath"].as_matrix().tolist())
+            hotlandmarks = np.array(hotgroup["landmarks"].as_matrix().tolist())
             hotFacefeatures = np.array(hotgroup["facefeatures"].as_matrix().tolist())
             hotnessScore = np.array(hotgroup["attractiveness"].as_matrix().tolist())
 
             print("%s %d %d"%(gender,hotness,hotFacefeatures.shape[0]))
 
-            hotFacefeatures = findBestFeaturesKNN(faceFeatures, hotFacefeatures, hotnessScore, hotness)
+            hotFacefeatures = findBestFeaturesKNN(startFaceFeatures, hotFacefeatures, hotnessScore, hotness)
 
-            newLandmarksKNN = calculateLandmarksfromFeatures(landmarks, hotFacefeatures)
-            hotFace = warpFace(im, landmarks, newLandmarksKNN)
+            newLandmarksKNN = calculateLandmarksfromFeatures(startLandmarks, hotFacefeatures)
 
-            imfaces[im.shape[0]*i:im.shape[0]*(i+1), im.shape[1]*j:im.shape[1]*(j+1)] = hotFace
+            count = 0
+            for k, impath in enumerate(hotImpaths):
+                im = cv2.imread(impath)
+                im = ensureImageLessThanMax(im)
+                imLandmarks = hotlandmarks[k]
+                hotFace = warpFace(im, imLandmarks, newLandmarksKNN, justFace=True)
 
-            cv2.imshow("saj",hotFace)
+                #crop image to right size
+                hotFace = hotFace[:startIm.shape[0],:startIm.shape[1]]
+
+                # cv2.imshow("1face", hotFace)
+                # cv2.waitKey(1)
+                print("%s %d %d" % (gender, hotness, hotImpaths.shape[0]))
+                print("%s/%s"%(k,hotImpaths.shape[0]))
+
+                count += 1
+                imfaces[startIm.shape[0]*i:startIm.shape[0]*(i+1), startIm.shape[1]*j:startIm.shape[1]*(j+1)][:hotFace.shape[0],:hotFace.shape[1]] += hotFace
+            imfaces[startIm.shape[0] * i:startIm.shape[0] * (i + 1), startIm.shape[1] * j:startIm.shape[1] * (j + 1)] /= count
+            cv2.imshow("avg", np.uint8(imfaces))
             cv2.waitKey(1)
+
+    imfaces = np.uint8(imfaces)
     cv2.imshow("sdfs", imfaces)
+    cv2.imwrite("./averageFaces.jpg", imfaces)
     cv2.waitKey(-1)
 
 
 
 if __name__ == "__main__":
+    # combineRatingCsvs()
+
     #load in the dataframes for analysis
     df = pd.read_pickle("../rRateMe/RateMeData.p")
 

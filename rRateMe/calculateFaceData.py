@@ -31,6 +31,7 @@ def saveFacialFeatures(combinedcsvpath):
 
     #filter out the weird ages
     filtered = df.loc[df['Submission Age'] >= 18]
+    filtered = df.loc[df['Submission Age'] < 50]
 
     grouped = filtered.groupby(['Submission Gender', "Folder"])
 

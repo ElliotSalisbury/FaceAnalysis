@@ -7,6 +7,7 @@ from sklearn import gaussian_process
 from warpFace import warpFace
 from US10K import loadUS10KFacialFeatures
 from calculateFaceData import loadRateMeFacialFeatures
+from faceFeatures import getNormalizingFactor
 
 FACE_POINTS = list(range(17, 68))
 MOUTH_POINTS = list(range(48, 61))
@@ -58,11 +59,11 @@ def findBestFeaturesOptimisation(myFeatures, gp):
         if iterCount % 100 == 0:
             print("%i - %0.2f - %0.2f"%(iterCount, y_pred, sigma2_pred))
 
-        return (1-(y_pred/5)) + sigma2_pred
+        return -y_pred / sigma2_pred
 
     bounds = np.zeros((len(myFeatures),2))
-    bounds[:, 0] = myFeatures - 0.1
-    bounds[:,1] = myFeatures + 0.1
+    bounds[:, 0] = myFeatures - 0.15
+    bounds[:,1] = myFeatures + 0.15
 
     optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
     return optimalNewFaceFeatures.x
@@ -73,14 +74,15 @@ def solveForEyes(oldLandmarks, newLandmarks):
         newEyeLandmarks = newLandmarks[eye_points]
 
         warpMat = cv2.estimateRigidTransform(np.float32(oldEyeLandmarks), np.float32(newEyeLandmarks), fullAffine=False)
-        warpMat = np.vstack([warpMat, [0, 0, 1]])
+        if warpMat is not None:
+            warpMat = np.vstack([warpMat, [0, 0, 1]])
 
-        oldEyeLandmarks1 = np.hstack([oldEyeLandmarks, np.ones((oldEyeLandmarks.shape[0],1))])
-        transformed = np.zeros(oldEyeLandmarks1.shape)
-        for i, landmark in enumerate(oldEyeLandmarks1):
-            transformed[i,:] = (np.matrix(warpMat)*landmark[:,np.newaxis]).T
+            oldEyeLandmarks1 = np.hstack([oldEyeLandmarks, np.ones((oldEyeLandmarks.shape[0],1))])
+            transformed = np.zeros(oldEyeLandmarks1.shape)
+            for i, landmark in enumerate(oldEyeLandmarks1):
+                transformed[i,:] = (np.matrix(warpMat)*landmark[:,np.newaxis]).T
 
-        newLandmarks[eye_points] = transformed[:,:2]
+            newLandmarks[eye_points] = transformed[:,:2]
     return newLandmarks
 
 # construct the weighting so that distances between the same features cost more to change
@@ -110,7 +112,7 @@ def calculateLandmarksfromFeatures(originalLandmarks, optimalFaceFeatures):
         return np.sum(alphaWeighting * np.square(np.square(faceFeatures) - np.square(optimalFaceFeatures)))
 
     # find facial landmarks that fit these new distances
-    normalizingTerm = np.linalg.norm(originalLandmarks[0] - originalLandmarks[16])  # facewidth
+    normalizingTerm = getNormalizingFactor(originalLandmarks)
     normLandmarks = originalLandmarks / normalizingTerm
 
     newLandmarks = scipy.optimize.minimize(costFunction, normLandmarks)
@@ -176,24 +178,42 @@ if __name__ == "__main__":
         displayIm = np.zeros((im.shape[0]*2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
         displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
         displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = beautifulFaceKNN.copy()
-        # displayIm[:im.shape[0], im.shape[1]*2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
+        displayIm[:im.shape[0], im.shape[1]*2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
 
+        # draw the landmarks
+        # landmarksIm = np.zeros(im.shape)
+        # for i, landmark in enumerate(newLandmarksGP):
+        #     op = (int(myLandmarks[i][0]), int(myLandmarks[i][1]))
+        #     cv2.circle(landmarksIm, op, 1, (255, 0, 255), thickness=-1)
+        #     p = (int(landmark[0]), int(landmark[1]))
+        #     cv2.circle(landmarksIm, p, 1, (0, 255, 255), thickness=-1)
+        # diff = np.abs(np.float32(im) - np.float32(beautifulFaceGP))
+        # diff = (diff / np.max(diff)) * 255
+        # displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
 
         #TEST RATE ME
         # get a set of face features that are more beautiful
         optimalNewFaceFeaturesKNN = findBestFeaturesKNN(myFeatures, ratemegp, trainXRateMe, trainYRateMe)
-        # optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, ratemegp)
-        # optimalNewFaceFeaturesGP = findBestFeaturesBiggerNose(myFeatures)
+        optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, ratemegp)
 
         # construct the landmarks that satisify the distance constraints of the features
         newLandmarksKNN = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesKNN)
-        # newLandmarksGP = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesGP)
+        newLandmarksGP = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesGP)
 
         beautifulFaceKNN = warpFace(im, myLandmarks, newLandmarksKNN)
-        # beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
-        displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = beautifulFaceKNN.copy()
-        # displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
+        beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
 
-        # cv2.imshow("face", displayIm)
-        # cv2.waitKey(-1)
+        displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = beautifulFaceKNN.copy()
+        displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
+
+        landmarksIm = np.zeros(im.shape)
+        for i, landmark in enumerate(newLandmarksKNN):
+            op = (int(myLandmarks[i][0]), int(myLandmarks[i][1]))
+            cv2.circle(landmarksIm, op, 1, (255, 0, 255), thickness=-1)
+            p = (int(landmark[0]), int(landmark[1]))
+            cv2.circle(landmarksIm, p, 1, (0, 255, 255), thickness=-1)
+        displayIm[im.shape[0]:, im.shape[1] * 3:im.shape[1] * 4, :] = landmarksIm
+
+        cv2.imshow("face", displayIm)
+        cv2.waitKey(1)
         cv2.imwrite(os.path.join(dstFolder,"%04d.jpg" % t), displayIm)
