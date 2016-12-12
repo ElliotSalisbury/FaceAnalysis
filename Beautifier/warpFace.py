@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
 import sys
+from skimage.transform import PiecewiseAffineTransform, warp
+import skimage
 
 FACE_TRIANGLES = np.load("triangles.npy")
 CORNER_TRIANGLES = np.load("cornerTriangles.npy")
@@ -44,7 +46,7 @@ def getCornerTrianglePts(im, landmarks):
         cornerTriangles2[i] = triPts
     return cornerTriangles2
 
-def warpFace(im, oldLandmarks, newLandmarks):
+def warpFaceOld(im, oldLandmarks, newLandmarks):
     print("morphing face")
     newIm = im.copy()
     # newIm = np.zeros(im.shape)
@@ -64,3 +66,17 @@ def warpFace(im, oldLandmarks, newLandmarks):
         newIm = warpTriangle(im, newIm, oldTriangle, newTriangle)
     newIm = np.uint8(newIm)
     return newIm
+
+def warpFace(im, oldLandmarks, newLandmarks):
+    print("warping face")
+    cornerPts = np.array([(0, 0), (im.shape[1], 0), (im.shape[1], im.shape[0]), (0, im.shape[0])])
+
+    oldLandmarks = np.append(oldLandmarks, cornerPts, axis=0)
+    newLandmarks = np.append(newLandmarks, cornerPts, axis=0)
+
+    tform = PiecewiseAffineTransform()
+    tform.estimate(newLandmarks,oldLandmarks)
+
+    warped = warp(im, tform)
+    warped = skimage.img_as_ubyte(warped)
+    return warped
