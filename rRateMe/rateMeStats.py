@@ -72,7 +72,13 @@ def averageFaces(df):
     startIm = cv2.imread("E:\\Facedata\\10k US Adult Faces Database\\Face Images\\Aaron_Nickell_11_oval.jpg")
     startIm = ensureImageLessThanMax(startIm, maxsize=256)
 
-    hotnessRange = range(5,9)
+    numFaces = 5
+    minAttractiveness = df['attractiveness'].min()
+    maxAttractiveness = df['attractiveness'].max()
+    attractiveRange = maxAttractiveness - minAttractiveness
+    attractiveWidth = attractiveRange / float(numFaces)
+    halfAW = attractiveWidth / 2
+    hotnessRange = np.linspace(minAttractiveness+halfAW,maxAttractiveness-halfAW,numFaces)
 
     startLandmarks, startFaceFeatures = getFaceFeatures(startIm)
 
@@ -81,8 +87,8 @@ def averageFaces(df):
     grouped = df.groupby("gender")
     for i, (gender, group) in enumerate(grouped):
         for j, hotness in enumerate(hotnessRange):
-            hotgroup = group.loc[group['attractiveness'] >= hotness-0.5]
-            hotgroup = hotgroup.loc[hotgroup['attractiveness'] < hotness+0.5]
+            hotgroup = group.loc[group['attractiveness'] >= hotness-halfAW]
+            hotgroup = hotgroup.loc[hotgroup['attractiveness'] < hotness+halfAW]
 
             hotImpaths = np.array(hotgroup["impath"].as_matrix().tolist())
             hotlandmarks = np.array(hotgroup["landmarks"].as_matrix().tolist())
@@ -107,8 +113,8 @@ def averageFaces(df):
 
                 # cv2.imshow("1face", hotFace)
                 # cv2.waitKey(1)
-                print("%s %d %d" % (gender, hotness, hotImpaths.shape[0]))
                 print("%s/%s"%(k,hotImpaths.shape[0]))
+                cv2.imwrite("./averageFaces_%s_%d_%d.jpg"% (gender, hotness, hotImpaths.shape[0]), imfaces)
 
                 count += 1
                 imfaces[startIm.shape[0]*i:startIm.shape[0]*(i+1), startIm.shape[1]*j:startIm.shape[1]*(j+1)][:hotFace.shape[0],:hotFace.shape[1]] += hotFace
