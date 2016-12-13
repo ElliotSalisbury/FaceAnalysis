@@ -1,5 +1,6 @@
 import sklearn.decomposition
 import sklearn.gaussian_process
+import scipy.optimize
 import pickle
 import os
 import numpy as np
@@ -27,21 +28,32 @@ def trainGP(df, dstPath, trainPercentage=0.9):
         reducedTrainX = pca.transform(trainX)
         reducedTestX = pca.transform(testX)
 
-        bestScore = -100000
-        bestGP = None
-        for alpha in np.linspace(0.01,0.1, 20):
-            for constant in np.linspace(1.0, 3.0, 30):
-                kernel = sklearn.gaussian_process.kernels.ConstantKernel(constant, constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
 
-                gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
-                gp.fit(reducedTrainX, trainY)
+        bounds = np.zeros((2, 2))
+        bounds[0, :] = [0.01, 0.1] #alpha bounds
+        bounds[1, :] = [1.0, 3.0] #constant bounds
 
-                score = gp.score(reducedTestX,testY)
-                if score > bestScore:
-                    bestScore = score
-                    bestGP = gp
+        def gpTraining(params):
+            alpha = params[0]
+            constant = params[1]
 
-                print("gp (%0.4f, %0.4f) = %0.10f"%(alpha,constant,score))
+            kernel = sklearn.gaussian_process.kernels.ConstantKernel(constant,constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
+            gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
 
-        if bestGP is not None:
-            pickle.dump((pca,bestGP), open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))
+            gp.fit(reducedTrainX, trainY)
+
+            score = gp.score(reducedTestX, testY)
+
+            print("gp (%0.4f, %0.4f) = %0.10f" % (alpha, constant, score))
+            return -score
+
+        gpParameters = scipy.optimize.minimize(gpTraining, [0.05, 1.5], method='SLSQP', bounds=bounds, options={"maxiter": 5, "eps": 0.001})
+        alpha, constant = gpParameters.x
+
+        kernel = sklearn.gaussian_process.kernels.ConstantKernel(constant,constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
+        gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
+        gp.fit(reducedTrainX, trainY)
+        score = gp.score(reducedTestX, testY)
+        print("gp (%0.4f, %0.4f) = %0.10f" % (alpha, constant, score))
+
+        pickle.dump((pca,gp), open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))

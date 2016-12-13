@@ -7,7 +7,7 @@ from sklearn import gaussian_process
 from warpFace import warpFace
 from US10K import loadUS10KFacialFeatures
 from calculateFaceData import loadRateMeFacialFeatures
-from faceFeatures import getNormalizingFactor
+from faceFeatures import getNormalizingFactor, getFaceFeatures
 
 FACE_POINTS = list(range(17, 68))
 MOUTH_POINTS = list(range(48, 61))
@@ -65,7 +65,54 @@ def findBestFeaturesOptimisation(myFeatures, pca, gp):
 
     reducedFeatures = pca.transform(myFeatures)
 
-    bounds = np.zeros((len(reducedFeatures),2))
+    bounds = np.zeros((reducedFeatures.shape[1],2))
+    bounds[:, 0] = reducedFeatures - 0.15
+    bounds[:,1] = reducedFeatures + 0.15
+
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, reducedFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    return pca.inverse_transform(optimalNewFaceFeatures.x)
+
+def findBestFeaturesOptimisation2(myFeatures, pca, gp):
+    print("finding optimal face features optimisation")
+    iterCount = 0
+    def GPCostFunction(reducedFeatures):
+        nonlocal iterCount
+        y_pred, cov = gp.predict([reducedFeatures], return_cov=True)
+
+        iterCount += 1
+        if iterCount % 100 == 0:
+            print("%i - %0.2f - %0.2f"%(iterCount, y_pred, cov))
+
+        return -y_pred / cov
+
+    reducedFeatures = pca.transform(myFeatures)
+
+    bounds = np.zeros((reducedFeatures.shape[1],2))
+    bounds[:, 0] = reducedFeatures - 0.15
+    bounds[:,1] = reducedFeatures + 0.15
+
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, reducedFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    return pca.inverse_transform(optimalNewFaceFeatures.x)
+
+def findBestFeaturesOptimisation3(myFeatures, pca, gp):
+    print("finding optimal face features optimisation")
+    iterCount = 0
+    def GPCostFunction(reducedFeatures):
+        nonlocal iterCount
+        y_pred = gp.predict([reducedFeatures])
+
+        LP = np.sum((-np.square(reducedFeatures)) / (2 * pca.explained_variance_))
+
+        iterCount += 1
+        if iterCount % 100 == 0:
+            print("%i - %0.2f - %0.2f"%(iterCount, y_pred, LP))
+
+        alpha = 0.2
+        return (alpha-1)*y_pred - alpha*LP
+
+    reducedFeatures = pca.transform(myFeatures)
+
+    bounds = np.zeros((reducedFeatures.shape[1],2))
     bounds[:, 0] = reducedFeatures - 0.15
     bounds[:,1] = reducedFeatures + 0.15
 
@@ -126,6 +173,52 @@ def calculateLandmarksfromFeatures(originalLandmarks, optimalFaceFeatures):
 
     return newLandmarks
 
+def beautifyFace(im, landmarks, features, pca, gp, trainX, trainY, method='KNN'):
+    if method=='KNN':
+        newFaceFeatures = findBestFeaturesKNN(features, pca, gp, trainX, trainY)
+    elif method == 'GP':
+        newFaceFeatures = findBestFeaturesOptimisation(features, pca, gp)
+    elif method == 'GP2':
+        newFaceFeatures = findBestFeaturesOptimisation2(features, pca, gp)
+    elif method == 'GP3':
+        newFaceFeatures = findBestFeaturesOptimisation3(features, pca, gp)
+    # construct the landmarks that satisify the distance constraints of the features
+    newLandmarks = calculateLandmarksfromFeatures(landmarks, newFaceFeatures)
+
+    warpedFace = warpFace(im, landmarks, newLandmarks)
+    return warpedFace
+
+def compareMethods(im, landmarks, features, outpath):
+    US10KKNN = beautifyFace(im, landmarks, features, us10kpca, us10kgp, trainX, trainY, method='KNN')
+    US10KGP = beautifyFace(im, landmarks, features, us10kpca, us10kgp, trainX, trainY, method='GP3')
+    RateMeKNN = beautifyFace(im, landmarks, features, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='KNN')
+    RateMeGP = beautifyFace(im, landmarks, features, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='GP3')
+
+    displayIm = np.zeros((im.shape[0] * 2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
+    displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
+    displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10KKNN
+    displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10KGP
+    displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = RateMeKNN
+    displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = RateMeGP
+
+    diff = np.abs(np.float32(im) - np.float32(US10KGP))
+    diff = (diff / np.max(diff)) * 255
+    displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
+
+    diff = np.abs(np.float32(im) - np.float32(RateMeGP))
+    diff = (diff / np.max(diff)) * 255
+    displayIm[im.shape[0]:, im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
+
+    cv2.imshow("face", displayIm)
+    cv2.waitKey(-1)
+    cv2.imwrite(outpath, displayIm)
+
+def beautifyImFromPath(impath):
+    im = cv2.imread(impath)
+
+    landmarks, faceFeatures = getFaceFeatures(im)
+    compareMethods(im, landmarks, faceFeatures, os.path.join(os.path.dirname(impath),"beautified.jpg"))
+
 if __name__ == "__main__":
     dstFolder = "./results/"
     us10kdf = loadUS10KFacialFeatures()
@@ -151,73 +244,51 @@ if __name__ == "__main__":
     trainYRateMe = np.array(ratemewomen["attractiveness"].as_matrix().tolist())
 
     #load the GP that learnt attractiveness
-    ratemegp = pickle.load(
+    ratemepca, ratemegp = pickle.load(
         open(os.path.join(scriptFolder,"../rRateMe/GP_F.p"), "rb"))
     us10kpca, us10kgp = pickle.load(
         open(os.path.join(scriptFolder,"../US10k/GP_F.p"), "rb"))
 
     print("begin beautification")
-    # for each of the test set, make them more beautiful
-    for t in range(len(testX)):
-        print("working on face %i"%t)
-        myLandmarks = testL[t]
-        myFeatures = testX[t]
-        myActualScore = testY[t]
-        myImpath = testI[t]
 
-        #get a set of face features that are more beautiful
-        optimalNewFaceFeaturesKNN = findBestFeaturesKNN(myFeatures, us10kpca, us10kgp, trainX, trainY)
-        # optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, us10kgp)
+    beautifyImFromPath("C:\\Users\\ellio\\Desktop\\lena.bmp")
 
-        #construct the landmarks that satisify the distance constraints of the features
-        newLandmarksKNN = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesKNN)
-        # newLandmarksGP = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesGP)
 
-        #morph the face
-        im = cv2.imread(myImpath)
-
-        beautifulFaceKNN = warpFace(im, myLandmarks, newLandmarksKNN)
-        # beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
-
-        displayIm = np.zeros((im.shape[0]*2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
-        displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
-        displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = beautifulFaceKNN.copy()
-        displayIm[:im.shape[0], im.shape[1]*2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
-
-        # draw the landmarks
-        # landmarksIm = np.zeros(im.shape)
-        # for i, landmark in enumerate(newLandmarksGP):
-        #     op = (int(myLandmarks[i][0]), int(myLandmarks[i][1]))
-        #     cv2.circle(landmarksIm, op, 1, (255, 0, 255), thickness=-1)
-        #     p = (int(landmark[0]), int(landmark[1]))
-        #     cv2.circle(landmarksIm, p, 1, (0, 255, 255), thickness=-1)
-        # diff = np.abs(np.float32(im) - np.float32(beautifulFaceGP))
-        # diff = (diff / np.max(diff)) * 255
-        # displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
-
-        #TEST RATE ME
-        # get a set of face features that are more beautiful
-        optimalNewFaceFeaturesKNN = findBestFeaturesKNN(myFeatures, ratemegp, trainXRateMe, trainYRateMe)
-        optimalNewFaceFeaturesGP = findBestFeaturesOptimisation(myFeatures, ratemegp)
-
-        # construct the landmarks that satisify the distance constraints of the features
-        newLandmarksKNN = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesKNN)
-        newLandmarksGP = calculateLandmarksfromFeatures(myLandmarks, optimalNewFaceFeaturesGP)
-
-        beautifulFaceKNN = warpFace(im, myLandmarks, newLandmarksKNN)
-        beautifulFaceGP = warpFace(im, myLandmarks, newLandmarksGP)
-
-        displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = beautifulFaceKNN.copy()
-        displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = beautifulFaceGP.copy()
-
-        landmarksIm = np.zeros(im.shape)
-        for i, landmark in enumerate(newLandmarksKNN):
-            op = (int(myLandmarks[i][0]), int(myLandmarks[i][1]))
-            cv2.circle(landmarksIm, op, 1, (255, 0, 255), thickness=-1)
-            p = (int(landmark[0]), int(landmark[1]))
-            cv2.circle(landmarksIm, p, 1, (0, 255, 255), thickness=-1)
-        displayIm[im.shape[0]:, im.shape[1] * 3:im.shape[1] * 4, :] = landmarksIm
-
-        cv2.imshow("face", displayIm)
-        cv2.waitKey(1)
-        cv2.imwrite(os.path.join(dstFolder,"%04d.jpg" % t), displayIm)
+    #
+    # # for each of the test set, make them more beautiful
+    # for t in range(len(testX)):
+    #     print("working on face %i"%t)
+    #     myLandmarks = testL[t]
+    #     myFeatures = testX[t]
+    #     myActualScore = testY[t]
+    #     myImpath = testI[t]
+    #
+    #     #morph the face
+    #     im = cv2.imread(myImpath)
+    #
+    #     US10KKNN = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='KNN')
+    #     US10KGP = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='GP')
+    #     RateMeKNN = beautifyFace(im, myLandmarks, myFeatures, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='KNN')
+    #     RateMeGP = beautifyFace(im, myLandmarks, myFeatures, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='GP')
+    #
+    #     displayIm = np.zeros((im.shape[0]*2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
+    #     displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
+    #     displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10KKNN
+    #     displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10KGP
+    #     displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = RateMeKNN
+    #     displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = RateMeGP
+    #
+    #     diff = np.abs(np.float32(im) - np.float32(US10KGP))
+    #     diff = (diff / np.max(diff)) * 255
+    #     displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
+    #
+    #     diff = np.abs(np.float32(im) - np.float32(RateMeGP))
+    #     diff = (diff / np.max(diff)) * 255
+    #     displayIm[im.shape[0]:, im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
+    #
+    #     cv2.imshow("face", displayIm)
+    #     cv2.waitKey(1)
+    #     cv2.imwrite(os.path.join(dstFolder, "%04d.jpg" % t), displayIm)
+    #
+    #     cv2.imwrite(os.path.join(os.path.join(dstFolder, "gp_compare"), "%04d_1.jpg" % t), im)
+    #     cv2.imwrite(os.path.join(os.path.join(dstFolder, "gp_compare"), "%04d_2.jpg" % t), US10KGP)
