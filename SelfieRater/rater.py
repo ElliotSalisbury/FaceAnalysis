@@ -1,11 +1,12 @@
 import numpy as np
 import cv2
+import os
 from faceFeatures import getFaceFeatures
 import pickle
-from beautifier import findBestFeaturesKNN,calculateLandmarksfromFeatures
-from warpFace import warpFace
-from US10K import loadUS10KFacialFeatures
+from beautifier import beautifyFace
+from calculateFaceData import loadRateMeFacialFeatures
 
+scriptFolder = os.path.dirname(os.path.realpath(__file__))
 MAX_IM_SIZE = 512
 
 def ensureImageLessThanMax(im):
@@ -26,18 +27,18 @@ def ensureImageLessThanMax(im):
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
 
-    gp = pickle.load(
-        open("C:\\Users\\Elliot\\PycharmProjects\\FaceAnalysis\\US10K\\GP_M.p", "rb"))
-    us10kdf = loadUS10KFacialFeatures()
+    pca, gp = pickle.load(
+        open(os.path.join(scriptFolder, "../rRateMe/GP_F.p"), "rb"))
 
-    us10kwomen = us10kdf.loc[us10kdf['gender'] == 'M']
+    ratemedf = loadRateMeFacialFeatures()
+    ratemegendered = ratemedf.loc[ratemedf['gender'] == 'F']
 
     #split into training sets
-    trainSize = int(us10kwomen.shape[0] * 0.8)
-    traindf = us10kwomen[:trainSize]
-    trainX = np.array(traindf["facefeatures"].as_matrix().tolist())
-    trainY = np.array(traindf["attractiveness"].as_matrix().tolist())
+    trainX = np.array(ratemegendered["facefeatures"].as_matrix().tolist())
+    trainY = np.array(ratemegendered["attractiveness"].as_matrix().tolist())
 
+    NUM_BEST = 5
+    bestimgs = []
     scores = []
     count = 0
     while(True):
@@ -48,30 +49,40 @@ if __name__ == "__main__":
 
         landmarks, features = getFaceFeatures(frame)
 
-
         if features is not None:
-            if count %60 == 0:
-                optimalNewFaceFeaturesKNN = findBestFeaturesKNN(features, gp, trainX, trainY)
-            count+=1
-            newLandmarksKNN = calculateLandmarksfromFeatures(landmarks, optimalNewFaceFeaturesKNN)
-            beautifulFaceKNN = warpFace(frame, landmarks, newLandmarksKNN)
-
+            # hotterFace = beautifyFace(frame, landmarks, features, pca, gp, trainX, trainY, method='KNN')
 
             # draw the landmarks
+
+
+            reducedFeatures = pca.transform(features)
+
+            # score, std = gp.predict(reducedFeatures, return_std=True)
+            score, std = gp.predict(reducedFeatures, return_std=False),0
+            scores.append([score, std])
+            scores = scores[-20:]
+            avg = np.mean(np.array(scores), axis=0)
+
+            bestimgs.append([score,frame.copy()])
+            bestimgs = sorted(bestimgs, key=lambda e:-e[0])[:NUM_BEST]
+
             for i, landmark in enumerate(landmarks):
                 p = (int(landmark[0]), int(landmark[1]))
                 cv2.circle(frame, p, 3, (0, 255, 255), thickness=-1)
-
-            score = gp.predict([features])[0]
-            scores.append(score)
-            scores = scores[-20:]
-            avg = sum(scores) / len(scores)
-
             font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(frame, "%0.3f"%avg, p, font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(frame, "  %0.2f +- %0.2f"%(avg[0], avg[1]), p, font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            # cv2.imshow("hotter", hotterFace)
+
+        #display best imgs
+        bestImgsIm = np.zeros((frame.shape[0], frame.shape[1]*NUM_BEST, frame.shape[2]), dtype=np.uint8)
+        for i, bestImg in enumerate(bestimgs):
+            im = bestImg[1]
+            bestImgsIm[:,i*frame.shape[1]:(i+1)*frame.shape[1],:] = im
+
 
         # Display the resulting frame
-        cv2.imshow('frame',beautifulFaceKNN)
+        cv2.imshow('frame', frame)
+        cv2.imshow('best', bestImgsIm)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 

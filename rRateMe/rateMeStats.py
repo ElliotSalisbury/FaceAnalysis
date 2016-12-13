@@ -68,7 +68,7 @@ def findBestFeaturesKNN(myFeatures, trainX, trainY, beautyAim):
 
     return kNewFeatures[K-1]
 
-def averageFaces(df):
+def averageFaces(df, outpath):
     startIm = cv2.imread("E:\\Facedata\\10k US Adult Faces Database\\Face Images\\Aaron_Nickell_11_oval.jpg")
     startIm = ensureImageLessThanMax(startIm, maxsize=256)
 
@@ -103,6 +103,9 @@ def averageFaces(df):
 
             count = 0
             for k, impath in enumerate(hotImpaths):
+                if k>300:
+                    break
+
                 im = cv2.imread(impath)
                 im = ensureImageLessThanMax(im)
                 imLandmarks = hotlandmarks[k]
@@ -114,17 +117,20 @@ def averageFaces(df):
                 # cv2.imshow("1face", hotFace)
                 # cv2.waitKey(1)
                 print("%s/%s"%(k,hotImpaths.shape[0]))
-                cv2.imwrite("./averageFaces_%s_%d_%d.jpg"% (gender, hotness, hotImpaths.shape[0]), imfaces)
 
                 count += 1
                 imfaces[startIm.shape[0]*i:startIm.shape[0]*(i+1), startIm.shape[1]*j:startIm.shape[1]*(j+1)][:hotFace.shape[0],:hotFace.shape[1]] += hotFace
             imfaces[startIm.shape[0] * i:startIm.shape[0] * (i + 1), startIm.shape[1] * j:startIm.shape[1] * (j + 1)] /= count
+
+            avgFace = np.uint8(imfaces[startIm.shape[0] * i:startIm.shape[0] * (i + 1), startIm.shape[1] * j:startIm.shape[1] * (j + 1)])
+            cv2.imwrite(os.path.join(outpath,"averageFaces_%s_%0.2f_%d.jpg" % (gender, hotness, hotImpaths.shape[0])), avgFace)
+
             cv2.imshow("avg", np.uint8(imfaces))
             cv2.waitKey(1)
 
     imfaces = np.uint8(imfaces)
     cv2.imshow("sdfs", imfaces)
-    cv2.imwrite("./averageFaces.jpg", imfaces)
+    cv2.imwrite(os.path.join("averageFaces.jpg"), imfaces)
     cv2.waitKey(-1)
 
 
@@ -135,4 +141,4 @@ if __name__ == "__main__":
     #load in the dataframes for analysis
     df = pd.read_pickle("../rRateMe/RateMeData.p")
 
-    averageFaces(df)
+    averageFaces(df, "./rateme/")
