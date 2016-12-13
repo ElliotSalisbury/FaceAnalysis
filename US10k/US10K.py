@@ -15,7 +15,7 @@ GENDER_DICT = {0:"F",1:"M"}
 demographicscsv = "E:\\Facedata\\10k US Adult Faces Database\\Full Attribute Scores\\demographic & others labels\\demographic-others-labels-final.csv"
 imfolder = "E:\\Facedata\\10k US Adult Faces Database\\Face Images"
 #output location
-scriptFolder = os.path.realpath(__file__)
+scriptFolder = os.path.dirname(os.path.realpath(__file__))
 
 
 def readUS10kDemographics():

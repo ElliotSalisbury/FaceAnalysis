@@ -23,7 +23,7 @@ def ensureImageLessThanMax(im, maxsize=MAX_IM_SIZE):
         im = cv2.resize(im,(width,height))
     return im
 
-scriptFolder = os.path.realpath(__file__)
+scriptFolder = os.path.dirname(os.path.realpath(__file__))
 def saveFacialFeatures(combinedcsvpath):
     df = pd.read_csv(combinedcsvpath)
     df.drop('Rating Text', 1)

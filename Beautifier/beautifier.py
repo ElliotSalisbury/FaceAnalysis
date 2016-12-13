@@ -18,7 +18,7 @@ LEFT_EYE_POINTS = list(range(42, 48))
 NOSE_POINTS = list(range(27, 35))
 JAW_POINTS = list(range(0, 17))
 
-scriptFolder = os.path.realpath(__file__)
+scriptFolder = os.path.dirname(os.path.realpath(__file__))
 faceLines = np.load(os.path.join(scriptFolder,"lines.npy"))
 
 def findBestFeaturesKNN(myFeatures, pca, gp, trainX, trainY):
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     #load the GP that learnt attractiveness
     ratemegp = pickle.load(
         open(os.path.join(scriptFolder,"../rRateMe/GP_F.p"), "rb"))
-    us10kgp = pickle.load(
+    us10kpca, us10kgp = pickle.load(
         open(os.path.join(scriptFolder,"../US10k/GP_F.p"), "rb"))
 
     print("begin beautification")

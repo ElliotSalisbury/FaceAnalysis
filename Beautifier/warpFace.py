@@ -5,7 +5,7 @@ from skimage.transform import PiecewiseAffineTransform, warp
 import skimage
 import os
 
-scriptFolder = os.path.realpath(__file__)
+scriptFolder = os.path.dirname(os.path.realpath(__file__))
 FACE_TRIANGLES = np.load(os.path.join(scriptFolder,"triangles.npy"))
 CORNER_TRIANGLES = np.load(os.path.join(scriptFolder,"cornerTriangles.npy"))
 

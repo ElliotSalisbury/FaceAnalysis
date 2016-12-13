@@ -4,7 +4,7 @@ import cv2
 import os
 
 #initialize dlib detector
-scriptFolder = os.path.realpath(__file__)
+scriptFolder = os.path.dirname(os.path.realpath(__file__))
 FACESWAP_SHAPEPREDICTOR_PATH = os.path.join(scriptFolder,"shape_predictor_68_face_landmarks.dat")
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(FACESWAP_SHAPEPREDICTOR_PATH)
