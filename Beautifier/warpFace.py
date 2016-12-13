@@ -5,9 +5,9 @@ from skimage.transform import PiecewiseAffineTransform, warp
 import skimage
 import os
 
-scriptDir = os.path.dirname(__file__)
-FACE_TRIANGLES = np.load(os.path.join(scriptDir,"triangles.npy"))
-CORNER_TRIANGLES = np.load(os.path.join(scriptDir,"cornerTriangles.npy"))
+scriptFolder = os.path.realpath(__file__)
+FACE_TRIANGLES = np.load(os.path.join(scriptFolder,"triangles.npy"))
+CORNER_TRIANGLES = np.load(os.path.join(scriptFolder,"cornerTriangles.npy"))
 
 # Apply affine transform calculated using srcTri and dstTri to src and
 # output an image of size.

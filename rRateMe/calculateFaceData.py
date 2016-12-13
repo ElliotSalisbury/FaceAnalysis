@@ -23,7 +23,7 @@ def ensureImageLessThanMax(im, maxsize=MAX_IM_SIZE):
         im = cv2.resize(im,(width,height))
     return im
 
-saveFolder = "C:\\Users\\ellio\\PycharmProjects\\circlelines\\rRateMe"
+scriptFolder = os.path.realpath(__file__)
 def saveFacialFeatures(combinedcsvpath):
     df = pd.read_csv(combinedcsvpath)
     df.drop('Rating Text', 1)
@@ -59,12 +59,12 @@ def saveFacialFeatures(combinedcsvpath):
 
     allDataDF = pd.DataFrame(allData)
     allDataDF = allDataDF.sample(frac=1).reset_index(drop=True)
-    allDataDF.to_pickle(os.path.join(saveFolder,"RateMeData.p"))
+    allDataDF.to_pickle(os.path.join(scriptFolder,"RateMeData.p"))
 
     return allDataDF
 
 def loadRateMeFacialFeatures():
-    return pd.read_pickle(os.path.join(saveFolder, "RateMeData.p"))
+    return pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
 
 if __name__ == "__main__":
     rateMeFolder = "E:\\Facedata\\RateMe"
@@ -73,4 +73,4 @@ if __name__ == "__main__":
     df = saveFacialFeatures(combinedPath)
     # df = loadRateMeFacialFeatures()
 
-    trainGP(df, saveFolder)
+    trainGP(df, scriptFolder)

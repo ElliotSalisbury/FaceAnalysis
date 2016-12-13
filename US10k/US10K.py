@@ -15,7 +15,7 @@ GENDER_DICT = {0:"F",1:"M"}
 demographicscsv = "E:\\Facedata\\10k US Adult Faces Database\\Full Attribute Scores\\demographic & others labels\\demographic-others-labels-final.csv"
 imfolder = "E:\\Facedata\\10k US Adult Faces Database\\Face Images"
 #output location
-saveFolder = "C:\\Users\\ellio\\PycharmProjects\\circlelines\\US10k"
+scriptFolder = os.path.realpath(__file__)
 
 
 def readUS10kDemographics():
@@ -53,16 +53,16 @@ def saveFacialFeatures(demographicsData):
             allData.append(dataDict)
 
     allDataDF = pd.DataFrame(allData)
-    allDataDF.to_pickle(os.path.join(saveFolder,"US10KData.p"))
+    allDataDF.to_pickle(os.path.join(scriptFolder,"US10KData.p"))
 
     return allDataDF
 
 def loadUS10KFacialFeatures():
-    return pd.read_pickle(os.path.join(saveFolder, "US10KData.p"))
+    return pd.read_pickle(os.path.join(scriptFolder, "US10KData.p"))
 
 if __name__ == "__main__":
     demographicsData = readUS10kDemographics()
     df = saveFacialFeatures(demographicsData)
     # df = loadUS10KFacialFeatures()
 
-    trainGP(df, saveFolder, trainPercentage=0.8)
+    trainGP(df, scriptFolder, trainPercentage=0.8)

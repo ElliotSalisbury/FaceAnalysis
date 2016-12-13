@@ -1,13 +1,15 @@
 import numpy as np
 import dlib
 import cv2
+import os
 
 #initialize dlib detector
-FACESWAP_SHAPEPREDICTOR_PATH = "C:\\Users\\ellio\\PycharmProjects\\circlelines\\Beautifier\\shape_predictor_68_face_landmarks.dat"
+scriptFolder = os.path.realpath(__file__)
+FACESWAP_SHAPEPREDICTOR_PATH = os.path.join(scriptFolder,"shape_predictor_68_face_landmarks.dat")
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(FACESWAP_SHAPEPREDICTOR_PATH)
 
-faceLines = np.load("C:\\Users\\ellio\\PycharmProjects\\circlelines\\Beautifier\\lines.npy")
+faceLines = np.load(os.path.join(scriptFolder,"lines.npy"))
 
 def getNormalizingFactor(landmarks):
     hull = cv2.convexHull(landmarks)

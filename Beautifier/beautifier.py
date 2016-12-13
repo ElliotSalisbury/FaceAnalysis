@@ -18,7 +18,8 @@ LEFT_EYE_POINTS = list(range(42, 48))
 NOSE_POINTS = list(range(27, 35))
 JAW_POINTS = list(range(0, 17))
 
-faceLines = np.load("C:\\Users\\ellio\\PycharmProjects\\circlelines\\Beautifier\\lines.npy")
+scriptFolder = os.path.realpath(__file__)
+faceLines = np.load(os.path.join(scriptFolder,"lines.npy"))
 
 def findBestFeaturesKNN(myFeatures, pca, gp, trainX, trainY):
     print("finding optimal face features KNN")
@@ -151,9 +152,9 @@ if __name__ == "__main__":
 
     #load the GP that learnt attractiveness
     ratemegp = pickle.load(
-        open("C:\\Users\\ellio\\PycharmProjects\\circlelines\\rRateMe\\GP_F.p", "rb"))
+        open(os.path.join(scriptFolder,"../rRateMe/GP_F.p"), "rb"))
     us10kgp = pickle.load(
-        open("C:\\Users\\ellio\\PycharmProjects\\circlelines\\US10k\\GP_F.p", "rb"))
+        open(os.path.join(scriptFolder,"../US10k/GP_F.p"), "rb"))
 
     print("begin beautification")
     # for each of the test set, make them more beautiful
