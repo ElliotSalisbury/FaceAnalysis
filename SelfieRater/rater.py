@@ -4,7 +4,7 @@ import os
 from faceFeatures import getFaceFeatures
 import pickle
 from beautifier import beautifyFace
-from calculateFaceData import loadRateMeFacialFeatures
+from RateMe import loadRateMeFacialFeatures
 
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
 MAX_IM_SIZE = 512

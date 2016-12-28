@@ -3,7 +3,7 @@ import csv
 import pandas as pd
 import cv2
 import numpy as np
-from calculateFaceData import ensureImageLessThanMax
+from RateMe import ensureImageLessThanMax
 from faceFeatures import getFaceFeatures
 from beautifier import findBestFeaturesKNN,calculateLandmarksfromFeatures
 from warpFace import warpFace

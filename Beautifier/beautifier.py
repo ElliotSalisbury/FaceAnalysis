@@ -6,7 +6,7 @@ import scipy
 from sklearn import gaussian_process
 from warpFace import warpFace
 from US10K import loadUS10KFacialFeatures
-from calculateFaceData import loadRateMeFacialFeatures
+from RateMe import loadRateMeFacialFeatures
 from faceFeatures import getNormalizingFactor, getFaceFeatures
 
 FACE_POINTS = list(range(17, 68))
