@@ -4,11 +4,45 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.tri as mtri
 import cv2
-from faceFeatures import getFaceFeatures
+from faceFeatures import getLandmarks
 import json
 
-def exportToJSON(mesh):
+landmark_ids = list(map(str, range(1, 69)))  # generates the numbers 1 to 68, as strings
+model = eos.morphablemodel.load_model("C:/eos/install/share/sfm_shape_3448.bin")
+blendshapes = eos.morphablemodel.load_blendshapes("C:/eos/install/share/expression_blendshapes_3448.bin")
+landmark_mapper = eos.core.LandmarkMapper('C:/eos/install/share/ibug2did.txt')
+edge_topology = eos.morphablemodel.load_edge_topology('C:/eos/install/share/sfm_3448_edge_topology.json')
+contour_landmarks = eos.fitting.ContourLandmarks.load('C:/eos/install/share/ibug2did.txt')
+model_contour = eos.fitting.ModelContour.load('C:/eos/install/share/model_contours.json')
+
+def getMeshFromLandmarks(landmarks, im):
+    image_width = im.shape[1]
+    image_height = im.shape[0]
+
+    (mesh, pose, shape_coeffs, blendshape_coeffs) = eos.fitting.fit_shape_and_pose(model, blendshapes,
+                                                                                   landmarks, landmark_ids,
+                                                                                   landmark_mapper,
+                                                                                   image_width, image_height,
+                                                                                   edge_topology, contour_landmarks,
+                                                                                   model_contour)
+    return mesh, pose, shape_coeffs, blendshape_coeffs
+
+def getFaceFeatures3D(im):
+    landmarks = getLandmarks(im)
+    if landmarks is None:
+        return None
+
+    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
+
+    return shape_coeffs + blendshape_coeffs
+
+def createTextureMap(mesh, pose, im):
+    return eos.render.extract_texture(mesh, pose, im)
+
+
+def exportMeshToJSON(mesh, outpath):
     verts = np.array(mesh.vertices)[:,0:3].flatten().tolist()
+
     uvs = np.array(mesh.texcoords)
     uvs[:,1] = 1-uvs[:,1]
     uvs = uvs.flatten().tolist()
@@ -27,11 +61,10 @@ def exportToJSON(mesh):
         "generator": "GeometryExporter"
     }
     outdata["vertices"] = verts
-    outdata["normals"] = verts
     outdata["uvs"] = [uvs]
     outdata["faces"] = faces
 
-    with open('example.json', 'w') as outfile:
+    with open(outpath, 'w') as outfile:
         json.dump(outdata, outfile, indent=4, sort_keys=True)
 
 def ensureImageLessThanMax(im, maxsize=512):
@@ -88,53 +121,17 @@ def main():
     im = cv2.imread("C:\\Users\\Elliot\\Desktop\\test3.jpg")
     im = ensureImageLessThanMax(im, 1024)
 
-    landmarks, faceFeatures = getFaceFeatures(im)
+    landmarks = getLandmarks(im)
+    if landmarks is None:
+        return None
 
-    """Demo for running the eos fitting from Python."""
-    # landmarks = read_pts('C:/eos/install/bin/data/image_0010.pts')
-    landmark_ids = list(map(str, range(1, 69))) # generates the numbers 1 to 68, as strings
-    image_width = im.shape[1] # Make sure to adjust these when using your own images!
-    image_height = im.shape[0]
+    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
+    isomap = getMeshFromLandmarks(landmarks, im)
+    getFaceFeatures3D(im)
 
-    model = eos.morphablemodel.load_model("C:/eos/install/share/sfm_shape_3448.bin")
-    blendshapes = eos.morphablemodel.load_blendshapes("C:/eos/install/share/expression_blendshapes_3448.bin")
-    landmark_mapper = eos.core.LandmarkMapper('C:/eos/install/share/ibug2did.txt')
-    edge_topology = eos.morphablemodel.load_edge_topology('C:/eos/install/share/sfm_3448_edge_topology.json')
-    contour_landmarks = eos.fitting.ContourLandmarks.load('C:/eos/install/share/ibug2did.txt')
-    model_contour = eos.fitting.ModelContour.load('C:/eos/install/share/model_contours.json')
-
-    (mesh, pose, shape_coeffs, blendshape_coeffs) = eos.fitting.fit_shape_and_pose(model, blendshapes,
-        landmarks, landmark_ids, landmark_mapper,
-        image_width, image_height, edge_topology, contour_landmarks, model_contour)
-
-    isomap = eos.render.extract_texture(mesh, pose, im)
     # cv2.imshow("texture", isomap[:,:,0:3])
     cv2.imwrite("example.jpg", isomap)
-    exportToJSON(mesh)
-
-    print("done")
-    # drawMesh(mesh, pose, isomap, im)
-    # cv2.waitKey(-1)
-
-    # Now you can use your favourite plotting/rendering library to display the fitted mesh, using the rendering
-    # parameters in the 'pose' variable.
-
-    # Or for example extract the texture map, like this:
-
-
-
-
-def read_pts(filename):
-    """A helper function to read ibug .pts landmarks from a file."""
-    lines = open(filename).read().splitlines()
-    lines = lines[3:71]
-
-    landmarks = []
-    for l in lines:
-        coords = l.split()
-        landmarks.append([float(coords[0]), float(coords[1])])
-
-    return landmarks
+    exportMeshToJSON(mesh, "example.json")
 
 if __name__ == "__main__":
     main()
