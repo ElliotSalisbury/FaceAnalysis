@@ -1,19 +1,19 @@
 import eos
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.tri as mtri
+import os
 import cv2
 from faceFeatures import getLandmarks
 import json
 
+EOS_SHARE_PATH = "E:\\eos\\install\\share"
+
 landmark_ids = list(map(str, range(1, 69)))  # generates the numbers 1 to 68, as strings
-model = eos.morphablemodel.load_model("C:/eos/install/share/sfm_shape_3448.bin")
-blendshapes = eos.morphablemodel.load_blendshapes("C:/eos/install/share/expression_blendshapes_3448.bin")
-landmark_mapper = eos.core.LandmarkMapper('C:/eos/install/share/ibug2did.txt')
-edge_topology = eos.morphablemodel.load_edge_topology('C:/eos/install/share/sfm_3448_edge_topology.json')
-contour_landmarks = eos.fitting.ContourLandmarks.load('C:/eos/install/share/ibug2did.txt')
-model_contour = eos.fitting.ModelContour.load('C:/eos/install/share/model_contours.json')
+model = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"sfm_shape_3448.bin"))
+blendshapes = eos.morphablemodel.load_blendshapes(os.path.join(EOS_SHARE_PATH,"expression_blendshapes_3448.bin"))
+landmark_mapper = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug2did.txt"))
+edge_topology = eos.morphablemodel.load_edge_topology(os.path.join(EOS_SHARE_PATH,"sfm_3448_edge_topology.json"))
+contour_landmarks = eos.fitting.ContourLandmarks.load(os.path.join(EOS_SHARE_PATH,"ibug2did.txt"))
+model_contour = eos.fitting.ModelContour.load(os.path.join(EOS_SHARE_PATH,"model_contours.json"))
 
 def getMeshFromLandmarks(landmarks, im):
     image_width = im.shape[1]
@@ -118,7 +118,7 @@ def drawMesh(mesh, pose, isomap, image):
 
 def main():
     # im = cv2.imread("C:\\Users\\Elliot\\Desktop\\fb\\MyFaces\\8.0\\0151.jpg")
-    im = cv2.imread("C:\\Users\\Elliot\\Desktop\\test3.jpg")
+    im = cv2.imread("C:\\Users\\ellio\\Desktop\\lena.bmp")
     im = ensureImageLessThanMax(im, 1024)
 
     landmarks = getLandmarks(im)
@@ -126,8 +126,7 @@ def main():
         return None
 
     mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
-    isomap = getMeshFromLandmarks(landmarks, im)
-    getFaceFeatures3D(im)
+    isomap = createTextureMap(mesh, pose, im)
 
     # cv2.imshow("texture", isomap[:,:,0:3])
     cv2.imwrite("example.jpg", isomap)
