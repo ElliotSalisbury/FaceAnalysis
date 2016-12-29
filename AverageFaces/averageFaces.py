@@ -7,6 +7,8 @@ from RateMe import ensureImageLessThanMax
 from faceFeatures import getFaceFeatures
 from beautifier import findBestFeaturesKNN,calculateLandmarksfromFeatures
 from warpFace import warpFace
+from face3D.faceFeatures3D import model,createTextureMap, getMeshFromLandmarks, exportMeshToJSON
+from multiprocessing import Process
 
 RateMeFolder = "E:\\Facedata\\RateMe"
 combinedPath = os.path.join(RateMeFolder, "combined.csv")
@@ -90,6 +92,9 @@ def averageFaces(df, outpath):
             hotgroup = group.loc[group['attractiveness'] >= hotness-halfAW]
             hotgroup = hotgroup.loc[hotgroup['attractiveness'] < hotness+halfAW]
 
+            if hotgroup.size == 0:
+                continue
+
             hotImpaths = np.array(hotgroup["impath"].as_matrix().tolist())
             hotlandmarks = np.array(hotgroup["landmarks"].as_matrix().tolist())
             hotFacefeatures = np.array(hotgroup["facefeatures"].as_matrix().tolist())
@@ -130,15 +135,85 @@ def averageFaces(df, outpath):
 
     imfaces = np.uint8(imfaces)
     cv2.imshow("sdfs", imfaces)
-    cv2.imwrite(os.path.join("averageFaces.jpg"), imfaces)
+    cv2.imwrite(os.path.join(outpath,"averageFaces.jpg"), imfaces)
     cv2.waitKey(-1)
 
+def averageFaces3D(df, outpath):
+    numFaces = 5
+    minAttractiveness = df['attractiveness'].min()
+    maxAttractiveness = df['attractiveness'].max()
+    attractiveRange = maxAttractiveness - minAttractiveness
+    attractiveWidth = attractiveRange / float(numFaces)
+    halfAW = attractiveWidth / 2
+    hotnessRange = np.linspace(minAttractiveness+halfAW,maxAttractiveness-halfAW,numFaces)
 
+    grouped = df.groupby("gender")
+    for i, (gender, group) in enumerate(grouped):
+        for j, hotness in enumerate(hotnessRange):
+            hotgroup = group.loc[group['attractiveness'] >= hotness-halfAW]
+            hotgroup = hotgroup.loc[hotgroup['attractiveness'] < hotness+halfAW]
+
+            if hotgroup.size == 0:
+                continue
+
+            hotImpaths = np.array(hotgroup["impath"].as_matrix().tolist())
+            hotlandmarks = np.array(hotgroup["landmarks"].as_matrix().tolist())
+            hotFacefeatures = np.array(hotgroup["facefeatures3D"].as_matrix().tolist())
+            hotnessScore = np.array(hotgroup["attractiveness"].as_matrix().tolist())
+
+            Process(target=exportAverageFace, args=(outpath, gender, hotness, hotFacefeatures, hotImpaths, hotlandmarks)).start()
+
+def exportAverageFace(outpath, gender, hotness, hotFacefeatures, hotImpaths, hotlandmarks):
+    print("%s %d %d" % (gender, hotness, hotFacefeatures.shape[0]))
+
+    avgHotFaceFeatures = hotFacefeatures.mean(axis=0)
+
+    hotMeshVerts = model.get_shape_model().draw_sample(avgHotFaceFeatures[0:63]).reshape((-1, 3))
+    hotMeshVerts2 = None
+
+    count = 0
+    avgFace = None
+    for k, impath in enumerate(hotImpaths):
+        # if k>5:
+        #     break
+
+        im = cv2.imread(impath)
+        landmarks = hotlandmarks[k]
+        mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
+        isomap = createTextureMap(mesh, pose, im)
+        isomap[:, :, 3] = isomap[:, :, 3] / 255
+        if avgFace is None:
+            avgFace = isomap.copy().astype(np.uint64)
+        else:
+            avgFace += isomap
+
+        if hotMeshVerts2 is None:
+            hotMeshVerts2 = np.array(mesh.vertices)
+        else:
+            hotMeshVerts2 += np.array(mesh.vertices)
+        count += 1
+
+        # countDivisor = np.repeat(avgFace[:,:,3][:,:,np.newaxis],3, axis=2)
+        # cv2.imshow("face", (avgFace[:,:,:3]/countDivisor).astype(np.uint8))
+        # cv2.waitKey(1)
+        print("%s/%s" % (k, hotImpaths.shape[0]))
+
+    countDivisor = np.repeat(avgFace[:, :, 3][:, :, np.newaxis], 3, axis=2)
+    avgFace = avgFace[:, :, :3] / countDivisor
+
+    cv2.imwrite(os.path.join(outpath, "averageFaces_%s_%0.2f_%d.jpg" % (gender, hotness, hotImpaths.shape[0])),
+                avgFace)
+
+    exportMeshToJSON(mesh, os.path.join(outpath,
+                                        "averageFaces_%s_%0.2f_%d.json" % (gender, hotness, hotImpaths.shape[0])),
+                     verts=hotMeshVerts[:, 0:3].flatten().tolist())
+    hotMeshVerts2 = hotMeshVerts2 / count
+    exportMeshToJSON(mesh, os.path.join(outpath,
+                                        "averageFaces_%s_%0.2f_%d_2.json" % (gender, hotness, hotImpaths.shape[0])),
+                     verts=hotMeshVerts2[:, 0:3].flatten().tolist())
 
 if __name__ == "__main__":
-    # combineRatingCsvs()
-
     #load in the dataframes for analysis
-    df = pd.read_pickle("../rRateMe/RateMeData.p")
+    df = pd.read_pickle("../US10K/US10KData.p")
 
-    averageFaces(df, "./rateme/")
+    averageFaces3D(df, "./us10k3D/")

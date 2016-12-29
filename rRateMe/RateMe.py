@@ -4,7 +4,8 @@ from gaussianProcess import trainGP
 import cv2
 import pandas as pd
 
-from Beautifier.faceFeatures import getFaceFeatures
+from faceFeatures import getFaceFeatures
+from face3D.faceFeatures3D import getFaceFeatures3D
 
 MAX_IM_SIZE = 512
 
@@ -36,7 +37,7 @@ def saveFacialFeatures(combinedcsvpath):
     grouped = filtered.groupby(['Submission Gender', "Folder"])
 
     allData = []
-    for genderfolder, group in grouped:
+    for i, (genderfolder, group) in enumerate(grouped):
         gender = genderfolder[0]
         folder = genderfolder[1]
         rating = group["Rating"].mean()
@@ -52,10 +53,14 @@ def saveFacialFeatures(combinedcsvpath):
             im = ensureImageLessThanMax(im)
 
             landmarks, faceFeatures = getFaceFeatures(im)
+            faceFeatures3D = getFaceFeatures3D(im, landmarks)
 
             if faceFeatures is not None:
-                dataDict = {"gender":gender,"attractiveness":rating,"landmarks":landmarks,"facefeatures":faceFeatures,"impath":impath}
+                dataDict = {"gender": gender, "attractiveness": rating, "landmarks": landmarks,
+                            "facefeatures": faceFeatures, "facefeatures3D": faceFeatures3D,
+                            "impath": impath}
                 allData.append(dataDict)
+                print("%i / %i" % (i, len(grouped)))
 
     allDataDF = pd.DataFrame(allData)
     allDataDF = allDataDF.sample(frac=1).reset_index(drop=True)
@@ -73,4 +78,5 @@ if __name__ == "__main__":
     df = saveFacialFeatures(combinedPath)
     # df = loadRateMeFacialFeatures()
 
-    trainGP(df, scriptFolder)
+    trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.9)
+    trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D")

@@ -10,7 +10,7 @@ def fitPCA(trainX):
     pca.fit(trainX)
     return pca
 
-def trainGP(df, dstPath, trainPercentage=0.9):
+def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures"):
     #we need to train for both male and female
     grouped = df.groupby("gender")
 
@@ -18,10 +18,10 @@ def trainGP(df, dstPath, trainPercentage=0.9):
         print("training %s GP" % gender)
 
         trainSize = int(group.shape[0] * trainPercentage)
-        trainX = np.array(group["facefeatures"][:trainSize].as_matrix().tolist())
+        trainX = np.array(group[featureset][:trainSize].as_matrix().tolist())
         trainY = np.array(group["attractiveness"][:trainSize].as_matrix().tolist())
 
-        testX = np.array(group["facefeatures"][trainSize:].as_matrix().tolist())
+        testX = np.array(group[featureset][trainSize:].as_matrix().tolist())
         testY = np.array(group["attractiveness"][trainSize:].as_matrix().tolist())
 
         pca = fitPCA(trainX)

@@ -6,6 +6,7 @@ import dlib
 import numpy as np
 import pandas as pd
 from faceFeatures import getFaceFeatures
+from face3D.faceFeatures3D import getFaceFeatures3D
 from gaussianProcess import trainGP
 
 #quickly change gender settings
@@ -45,12 +46,14 @@ def saveFacialFeatures(demographicsData):
             im = cv2.imread(impath)
 
             landmarks, faceFeatures = getFaceFeatures(im)
+            faceFeatures3D = getFaceFeatures3D(im)
 
             if faceFeatures is not None:
                 dataDict = {"gender": gender, "attractiveness": attractiveScore, "landmarks": landmarks,
-                            "facefeatures": faceFeatures,
+                            "facefeatures": faceFeatures, "facefeatures3D": faceFeatures3D,
                             "impath": impath}
-            allData.append(dataDict)
+                allData.append(dataDict)
+                print("%i / %i"%(i,len(demographicsData)))
 
     allDataDF = pd.DataFrame(allData)
     allDataDF.to_pickle(os.path.join(scriptFolder,"US10KData.p"))
@@ -65,4 +68,5 @@ if __name__ == "__main__":
     df = saveFacialFeatures(demographicsData)
     # df = loadUS10KFacialFeatures()
 
-    trainGP(df, scriptFolder, trainPercentage=0.8)
+    trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.8)
+    trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D")
