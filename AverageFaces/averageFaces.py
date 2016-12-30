@@ -7,7 +7,9 @@ from RateMe import ensureImageLessThanMax
 from faceFeatures import getFaceFeatures
 from beautifier import findBestFeaturesKNN,calculateLandmarksfromFeatures
 from warpFace import warpFace
-from face3D.faceFeatures3D import model,createTextureMap, getMeshFromLandmarks, exportMeshToJSON
+from face3D.faceFeatures3D import createTextureMap, getMeshFromLandmarks, exportMeshToJSON, model, blendshapes
+import eos
+import random
 from multiprocessing import Process
 
 RateMeFolder = "E:\\Facedata\\RateMe"
@@ -164,21 +166,26 @@ def averageFaces3D(df, outpath):
             Process(target=exportAverageFace, args=(outpath, gender, hotness, hotFacefeatures, hotImpaths, hotlandmarks)).start()
 
 def exportAverageFace(outpath, gender, hotness, hotFacefeatures, hotImpaths, hotlandmarks):
-    print("%s %d %d" % (gender, hotness, hotFacefeatures.shape[0]))
-
     avgHotFaceFeatures = hotFacefeatures.mean(axis=0)
+    # avgHotFaceFeatures = np.median(hotFacefeatures, axis=0)
 
-    hotMeshVerts = model.get_shape_model().draw_sample(avgHotFaceFeatures[0:63]).reshape((-1, 3))
-    hotMeshVerts2 = None
+    hotShapeCoeffs = avgHotFaceFeatures[0:63]
+    hotExpressionCoeffs = avgHotFaceFeatures[63:]
+    hotMesh = eos.morphablemodel.draw_sample(model, blendshapes, hotShapeCoeffs, hotExpressionCoeffs, [])
 
     count = 0
     avgFace = None
-    for k, impath in enumerate(hotImpaths):
-        # if k>5:
-        #     break
+
+    NUMSAMPLES = min(len(hotImpaths), 300)
+    randomSampleIndexs = random.sample(range(len(hotImpaths)), NUMSAMPLES)
+
+    for k in randomSampleIndexs:
+        impath = hotImpaths[k]
+        landmarks = hotlandmarks[k]
 
         im = cv2.imread(impath)
-        landmarks = hotlandmarks[k]
+        im = ensureImageLessThanMax(im)
+
         mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
         isomap = createTextureMap(mesh, pose, im)
         isomap[:, :, 3] = isomap[:, :, 3] / 255
@@ -187,16 +194,12 @@ def exportAverageFace(outpath, gender, hotness, hotFacefeatures, hotImpaths, hot
         else:
             avgFace += isomap
 
-        if hotMeshVerts2 is None:
-            hotMeshVerts2 = np.array(mesh.vertices)
-        else:
-            hotMeshVerts2 += np.array(mesh.vertices)
         count += 1
 
         # countDivisor = np.repeat(avgFace[:,:,3][:,:,np.newaxis],3, axis=2)
         # cv2.imshow("face", (avgFace[:,:,:3]/countDivisor).astype(np.uint8))
         # cv2.waitKey(1)
-        print("%s/%s" % (k, hotImpaths.shape[0]))
+        print("%s %d %d %s/%s" % (gender, hotness, hotFacefeatures.shape[0], k, hotImpaths.shape[0]))
 
     countDivisor = np.repeat(avgFace[:, :, 3][:, :, np.newaxis], 3, axis=2)
     avgFace = avgFace[:, :, :3] / countDivisor
@@ -204,13 +207,7 @@ def exportAverageFace(outpath, gender, hotness, hotFacefeatures, hotImpaths, hot
     cv2.imwrite(os.path.join(outpath, "averageFaces_%s_%0.2f_%d.jpg" % (gender, hotness, hotImpaths.shape[0])),
                 avgFace)
 
-    exportMeshToJSON(mesh, os.path.join(outpath,
-                                        "averageFaces_%s_%0.2f_%d.json" % (gender, hotness, hotImpaths.shape[0])),
-                     verts=hotMeshVerts[:, 0:3].flatten().tolist())
-    hotMeshVerts2 = hotMeshVerts2 / count
-    exportMeshToJSON(mesh, os.path.join(outpath,
-                                        "averageFaces_%s_%0.2f_%d_2.json" % (gender, hotness, hotImpaths.shape[0])),
-                     verts=hotMeshVerts2[:, 0:3].flatten().tolist())
+    exportMeshToJSON(hotMesh, os.path.join(outpath, "averageFaces_%s_%0.2f_%d.json" % (gender, hotness, hotImpaths.shape[0])))
 
 if __name__ == "__main__":
     #load in the dataframes for analysis
