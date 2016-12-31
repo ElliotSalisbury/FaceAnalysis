@@ -188,11 +188,13 @@ def beautifyFace(im, landmarks, features, pca, gp, trainX, trainY, method='KNN')
     warpedFace = warpFace(im, landmarks, newLandmarks)
     return warpedFace
 
-def compareMethods(im, landmarks, features, outpath):
-    US10KKNN = beautifyFace(im, landmarks, features, us10kpca, us10kgp, trainX, trainY, method='KNN')
-    US10KGP = beautifyFace(im, landmarks, features, us10kpca, us10kgp, trainX, trainY, method='GP3')
-    RateMeKNN = beautifyFace(im, landmarks, features, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='KNN')
-    RateMeGP = beautifyFace(im, landmarks, features, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='GP3')
+def compareMethods(im, outpath, us10kpca, ratemepca, us10kgp, ratemegp, us10kTrainX, us10kTrainY, ratemeTrainX, ratemeTrainY):
+    landmarks, faceFeatures = getFaceFeatures(im)
+
+    US10KKNN = beautifyFace(im, landmarks, faceFeatures, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='KNN')
+    US10KGP = beautifyFace(im, landmarks, faceFeatures, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='GP3')
+    RateMeKNN = beautifyFace(im, landmarks, faceFeatures, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method='KNN')
+    RateMeGP = beautifyFace(im, landmarks, faceFeatures, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method='GP3')
 
     displayIm = np.zeros((im.shape[0] * 2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
     displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
@@ -213,11 +215,14 @@ def compareMethods(im, landmarks, features, outpath):
     cv2.waitKey(-1)
     cv2.imwrite(outpath, displayIm)
 
-def beautifyImFromPath(impath):
+def beautifyImFromPath(impath, pca, gp, trainX, trainY, method='KNN'):
     im = cv2.imread(impath)
+    beautifyIm(im, pca, gp, trainX, trainY, method)
 
+def beautifyIm(im, pca, gp, trainX, trainY, method='KNN'):
     landmarks, faceFeatures = getFaceFeatures(im)
-    compareMethods(im, landmarks, faceFeatures, os.path.join(os.path.dirname(impath),"beautified.jpg"))
+    beautifiedFace = beautifyFace(im, landmarks, faceFeatures, pca, gp, trainX, trainY, method)
+    return beautifiedFace
 
 if __name__ == "__main__":
     dstFolder = "./results/"
@@ -226,22 +231,13 @@ if __name__ == "__main__":
 
     us10kwomen = us10kdf.loc[us10kdf['gender'] == 'F']
     ratemewomen = ratemedf.loc[ratemedf['gender'] == 'F']
-    ratemewomen = ratemewomen.loc[ratemewomen['attractiveness'] >= 8]
 
     #split into training sets
-    trainSize = int(us10kwomen.shape[0] * 0.8)
-    traindf = us10kwomen[:trainSize]
-    trainX = np.array(traindf["facefeatures"].as_matrix().tolist())
-    trainY = np.array(traindf["attractiveness"].as_matrix().tolist())
+    us10kTrainX = np.array(us10kwomen["facefeatures"].as_matrix().tolist())
+    us10kTrainY = np.array(us10kwomen["attractiveness"].as_matrix().tolist())
 
-    testdf = us10kwomen[trainSize:]
-    testX = np.array(testdf["facefeatures"].as_matrix().tolist())
-    testY = np.array(testdf["attractiveness"].as_matrix().tolist())
-    testL = np.array(testdf["landmarks"].as_matrix().tolist())
-    testI = np.array(testdf["impath"].as_matrix().tolist())
-
-    trainXRateMe = np.array(ratemewomen["facefeatures"].as_matrix().tolist())
-    trainYRateMe = np.array(ratemewomen["attractiveness"].as_matrix().tolist())
+    ratemeTrainX = np.array(ratemewomen["facefeatures"].as_matrix().tolist())
+    ratemeTrainY = np.array(ratemewomen["attractiveness"].as_matrix().tolist())
 
     #load the GP that learnt attractiveness
     ratemepca, ratemegp = pickle.load(
@@ -251,7 +247,8 @@ if __name__ == "__main__":
 
     print("begin beautification")
 
-    beautifyImFromPath("C:\\Users\\ellio\\Desktop\\lena.bmp")
+    im=cv2.imread("C:\\Users\\ellio\\Desktop\\lena.bmp")
+    compareMethods(im, ".\\beautified.jpg", us10kpca, ratemepca, us10kgp, ratemegp, us10kTrainX, us10kTrainY, ratemeTrainX, ratemeTrainY)
 
 
     #
