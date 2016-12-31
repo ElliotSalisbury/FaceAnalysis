@@ -4,10 +4,10 @@ import os
 import cv2
 from faceFeatures import getLandmarks
 import json
-from warpFace import warpFace
+from face3D.warpFace3D import warpFace3D, project
 import math
 
-EOS_SHARE_PATH = "E:\\eos\\install\\share"
+EOS_SHARE_PATH = "C:\eos\install\share"
 
 landmark_ids = list(map(str, range(1, 69)))  # generates the numbers 1 to 68, as strings
 model = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"sfm_shape_3448.bin"))
@@ -16,77 +16,6 @@ landmark_mapper = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug2did.
 edge_topology = eos.morphablemodel.load_edge_topology(os.path.join(EOS_SHARE_PATH,"sfm_3448_edge_topology.json"))
 contour_landmarks = eos.fitting.ContourLandmarks.load(os.path.join(EOS_SHARE_PATH,"ibug2did.txt"))
 model_contour = eos.fitting.ModelContour.load(os.path.join(EOS_SHARE_PATH,"model_contours.json"))
-
-meshVertsToLandmarks=np.array([
--1,
--1,
--1,
--1,
--1,
--1,
--1,
--1,
-33,
--1,
--1,
--1,
--1,
--1,
--1,
--1,
--1,
-255,
-229,
-233,
-2086,
-157,
-590,
-2091,
-666,
-662,
-658,
-2842,
-379,
-272,
-114,
-100,
-2794,
-270,
-2797,
-537,
-177,
-172,
-191,
-181,
-173,
-174,
-614,
-624,
-605,
-610,
-607,
-606,
-398,
-315,
-413,
-329,
-825,
-736,
-812,
-841,
-693,
-411,
-264,
-431,
--1,
-416,
-423,
-828,
--1,
-817,
-442,
-404,
-])
 
 def getMeshFromLandmarks(landmarks, im):
     image_width = im.shape[1]
@@ -156,30 +85,6 @@ def ensureImageLessThanMax(im, maxsize=512):
         im = cv2.resize(im,(width,height))
     return im
 
-def project(p, modelview, proj, viewport):
-    tmp = modelview * p[:, np.newaxis]
-    tmp = proj * tmp
-
-    tmp = tmp/tmp[3]
-    tmp = tmp*0.5 + 0.5
-    tmp[0] = tmp[0] * viewport[2] + viewport[0]
-    tmp[1] = tmp[1] * viewport[3] + viewport[1]
-
-    return np.array(tmp[0:2]).flatten()
-
-def projectMeshTo2D(mesh, pose, image):
-    verts = np.array(mesh.vertices)
-    modelview = np.matrix(pose.get_modelview())
-    proj = np.matrix(pose.get_projection())
-    viewport = np.array([0,image.shape[0], image.shape[1], -image.shape[0]])
-
-    verts2d = np.zeros((verts.shape[0],2),dtype=np.float64)
-    for i, vert in enumerate(verts):
-        verts2d[i,:] = project(vert, modelview, proj, viewport)
-
-    return verts2d
-
-
 def drawMesh(mesh, pose, isomap, image):
     verts = np.array(mesh.vertices)
     modelview = np.matrix(pose.get_modelview())
@@ -204,8 +109,8 @@ def drawMesh(mesh, pose, isomap, image):
     cv2.imshow("lines", image)
 
 def main():
-    # im = cv2.imread("C:\\Users\\Elliot\\Desktop\\fb\\MyFaces\\8.0\\0151.jpg")
-    im = cv2.imread("C:\\Users\\ellio\\Desktop\\fb\\MyFaces\\tindermaybes\\7.4667_0202.jpg")
+    im = cv2.imread("C:\\Users\\Elliot\\Desktop\\fb\\MyFaces\\8.0\\0151.jpg")
+    #im = cv2.imread("C:\\Users\\Elliot\\Desktop\\test3.jpg")
     im = ensureImageLessThanMax(im, 1024)
 
     landmarks = getLandmarks(im)
@@ -227,14 +132,7 @@ def main():
 
             newMesh = eos.morphablemodel.draw_sample(model, blendshapes, new_coeffs, blendshape_coeffs, [])
 
-            verts2d = projectMeshTo2D(newMesh, pose, im)
-            newLandmarks = verts2d[meshVertsToLandmarks]
-            ignoreIndexs = np.where(meshVertsToLandmarks==-1)
-
-            oldLandmarks = np.delete(landmarks, ignoreIndexs, axis=0)
-            newLandmarks = np.delete(newLandmarks, ignoreIndexs, axis=0)
-
-            warpedIm = warpFace(im, oldLandmarks, newLandmarks)
+            warpedIm = warpFace3D(im, mesh, pose, newMesh)
             cv2.imshow("warped", warpedIm)
             cv2.imwrite("example_%i.jpg"%count, warpedIm)
             cv2.waitKey(1)
