@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from warpFace import warpFace
+from warpFace import warpFace, warpTriangle
 
 MESH_LANDMARKS_TO_VERTS=np.array([
 -1,
@@ -105,6 +105,78 @@ def projectMeshTo2D(mesh, pose, image):
         verts2d[i,:] = project(vert, modelview, proj, viewport)
 
     return verts2d
+
+def getVisibleFacesIndexs(mesh, pose):
+    verts = np.array(mesh.vertices)[:,:3]
+    norms = np.ones((len(mesh.tvi), 4), dtype=np.float64)
+    modelview = np.matrix(pose.get_modelview())
+    modelview[0, 3] = 0
+    modelview[1, 3] = 0
+
+    for i, triangle in enumerate(mesh.tvi):
+        p0, p1, p2 = verts[triangle]
+        v1 = p1 - p0
+        v2 = p2 - p1
+
+        norm = np.cross(v1,v2)
+        norm = norm / np.linalg.norm(norm)
+        norms[i,:3] = norm
+
+    rotatedNorms = np.zeros_like(norms)
+    for i, norm in enumerate(norms):
+        rotatedNorms[i] = np.array(modelview * norm[:, np.newaxis]).flatten()
+
+    return np.where(rotatedNorms[:,2] > 0)
+
+def renderFaceTo2D(im, mesh, pose, isomap):
+    verts2d = projectMeshTo2D(mesh, pose, im)
+    uvcoords = np.array(mesh.texcoords) * np.array([isomap.shape[1], isomap.shape[0]])
+
+    visibleFaceIndexs = getVisibleFacesIndexs(mesh, pose)
+    visibleVertIndexs = np.unique(np.array(mesh.tvi)[visibleFaceIndexs].flatten())
+
+    renderedFace = warpFace(isomap[:,:,:3], uvcoords[visibleVertIndexs], verts2d[visibleVertIndexs], justFace=True, output_shape=(im.shape[0], im.shape[1]))
+    meshFace = drawMesh(im, mesh, pose, isomap)
+    cv2.imshow("orig", im)
+    cv2.imshow("mesh", meshFace)
+
+
+    blackIs = np.where(
+        np.logical_and(np.logical_and(renderedFace[:, :, 0] == 0, renderedFace[:, :, 1] == 0), renderedFace[:, :, 2] == 0))
+    renderedFace[blackIs] = im[blackIs]
+    cv2.imshow("rendered", renderedFace)
+
+    # warpFace3D(im, mesh, pose, newMesh)
+
+    renderedFace2 = np.zeros_like(im)
+    for i, triangle in enumerate(np.array(mesh.tvi)[visibleFaceIndexs]):
+        # if i > 500:
+        #     break
+        srcT = uvcoords[triangle].astype(np.int64)
+        dstT = verts2d[triangle].astype(np.int64)
+
+        renderedFace2 = warpTriangle(isomap[:,:,:3], renderedFace2, srcT, dstT)
+    cv2.imshow("rendered2", renderedFace2.astype(np.uint8))
+
+    cv2.waitKey(-1)
+
+def drawMesh(im, mesh, pose, isomap):
+    verts2d = projectMeshTo2D(mesh, pose, im)
+    visibleFaceIndexs = getVisibleFacesIndexs(mesh, pose)
+
+    drawIm = im.copy()
+    for triangle in np.array(mesh.tvi)[visibleFaceIndexs]:
+        p0, p1, p2 = verts2d[triangle].astype(np.int64)
+
+        p02d = (p0[0], p0[1])
+        p12d = (p1[0], p1[1])
+        p22d = (p2[0], p2[1])
+
+        cv2.line(drawIm, p02d, p12d, (0, 255, 0), thickness=1)
+        cv2.line(drawIm, p12d, p22d, (0, 255, 0), thickness=1)
+        cv2.line(drawIm, p22d, p02d, (0, 255, 0), thickness=1)
+
+    return drawIm
 
 def warpFace3D(im, oldMesh, pose, newMesh):
     oldVerts2d = projectMeshTo2D(oldMesh, pose, im)

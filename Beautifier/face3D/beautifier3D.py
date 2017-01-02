@@ -17,7 +17,7 @@ scriptFolder = os.path.dirname(os.path.realpath(__file__))
 
 def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN'):
     mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
-    features3D = shape_coeffs + blendshape_coeffs
+    features3D = np.array(shape_coeffs + blendshape_coeffs)
 
     if method=='KNN':
         newFaceFeatures = findBestFeaturesKNN(features3D, pca, gp, trainX, trainY)
@@ -30,14 +30,14 @@ def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN'):
 
     # newFaceFeatures = shape_coeffs
     # newFaceFeatures[0] -= 1.0
-    newMesh = eos.morphablemodel.draw_sample(model, blendshapes, newFaceFeatures[:63], blendshape_coeffs , []) #newFaceFeatures[63:], [])
+    newMesh = eos.morphablemodel.draw_sample(model, blendshapes, newFaceFeatures[:63], newFaceFeatures[63:], [])
 
     warpedIm = warpFace3D(im, mesh, pose, newMesh)
     return warpedIm
 
 def compareMethods(im, landmarks, outpath):
     US10KKNN = beautifyFace3D(im, landmarks, us10kpca, us10kgp, trainX, trainY, method='KNN')
-    US10KGP = beautifyFace3D(im, landmarks, us10kpca, us10kgp, trainX, trainY, method='GP2')
+    US10KGP = beautifyFace3D(im, landmarks, us10kpca, us10kgp, trainX, trainY, method='GP3')
     # RateMeKNN = beautifyFace3D(im, landmarks, features, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='KNN')
     # RateMeGP = beautifyFace3D(im, landmarks, features, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='GP3')
 

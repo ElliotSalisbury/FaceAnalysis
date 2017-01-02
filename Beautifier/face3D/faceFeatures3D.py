@@ -4,7 +4,7 @@ import os
 import cv2
 from faceFeatures import getLandmarks
 import json
-from face3D.warpFace3D import warpFace3D, project
+from face3D.warpFace3D import warpFace3D, project, renderFaceTo2D
 import math
 
 EOS_SHARE_PATH = "C:\eos\install\share"
@@ -85,32 +85,9 @@ def ensureImageLessThanMax(im, maxsize=512):
         im = cv2.resize(im,(width,height))
     return im
 
-def drawMesh(mesh, pose, isomap, image):
-    verts = np.array(mesh.vertices)
-    modelview = np.matrix(pose.get_modelview())
-    proj = np.matrix(pose.get_projection())
-    viewport = np.array([0,image.shape[0], image.shape[1], -image.shape[0]])
-
-    for triangle in mesh.tvi:
-        p0, p1, p2 = verts[triangle]
-
-        p02d = project(p0, modelview, proj, viewport).astype(np.int64)
-        p12d = project(p1, modelview, proj, viewport).astype(np.int64)
-        p22d = project(p2, modelview, proj, viewport).astype(np.int64)
-
-        p02d = (p02d[0], p02d[1])
-        p12d = (p12d[0], p12d[1])
-        p22d = (p22d[0], p22d[1])
-
-        cv2.line(image, p02d, p12d, (0, 255, 0), thickness=1)
-        cv2.line(image, p12d, p22d, (0, 255, 0), thickness=1)
-        cv2.line(image, p22d, p02d, (0, 255, 0), thickness=1)
-
-    cv2.imshow("lines", image)
-
 def main():
-    im = cv2.imread("C:\\Users\\Elliot\\Desktop\\fb\\MyFaces\\8.0\\0151.jpg")
-    #im = cv2.imread("C:\\Users\\Elliot\\Desktop\\test3.jpg")
+    # im = cv2.imread("C:\\Users\\Elliot\\Desktop\\fb\\MyFaces\\8.0\\0151.jpg")
+    im = cv2.imread("C:\\Users\\Elliot\\Desktop\\test4.png")[:,:,:3]
     im = ensureImageLessThanMax(im, 1024)
 
     landmarks = getLandmarks(im)
@@ -120,6 +97,7 @@ def main():
     mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
     isomap = createTextureMap(mesh, pose, im)
     cv2.imwrite("example.jpg", isomap)
+    renderFaceTo2D(im,mesh,pose,isomap)
 
     newim = np.zeros((im.shape[0]*5,im.shape[1]*5, im.shape[2]), np.uint8)
 
@@ -134,7 +112,7 @@ def main():
 
             warpedIm = warpFace3D(im, mesh, pose, newMesh)
             cv2.imshow("warped", warpedIm)
-            cv2.imwrite("example_%i.jpg"%count, warpedIm)
+            cv2.imwrite(".webview/example_%i.jpg"%count, warpedIm)
             cv2.waitKey(1)
 
             x = count % 5
@@ -142,7 +120,7 @@ def main():
             newim[im.shape[0]*y:im.shape[0]*(y+1),im.shape[1]*x:im.shape[1]*(x+1),:]=warpedIm
 
 
-            exportMeshToJSON(newMesh, "example_%i.json"%count)
+            exportMeshToJSON(newMesh, "./webview/example_%i.json"%count)
             count += 1
     cv2.imwrite("all.jpg", newim)
 
