@@ -7,7 +7,7 @@ import json
 from face3D.warpFace3D import warpFace3D, project, renderFaceTo2D
 import math
 
-EOS_SHARE_PATH = "C:\eos\install\share"
+EOS_SHARE_PATH = "E:\eos\install\share"
 
 landmark_ids = list(map(str, range(1, 69)))  # generates the numbers 1 to 68, as strings
 model = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"sfm_shape_3448.bin"))
@@ -87,7 +87,7 @@ def ensureImageLessThanMax(im, maxsize=512):
 
 def main():
     # im = cv2.imread("C:\\Users\\Elliot\\Desktop\\fb\\MyFaces\\8.0\\0151.jpg")
-    im = cv2.imread("C:\\Users\\Elliot\\Desktop\\test4.png")[:,:,:3]
+    im = cv2.imread("C:\\Users\\ellio\\Desktop\\test2.jpg")[:,:,:3]
     im = ensureImageLessThanMax(im, 1024)
 
     landmarks = getLandmarks(im)
@@ -96,11 +96,10 @@ def main():
 
     mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
     isomap = createTextureMap(mesh, pose, im)
-    cv2.imwrite("example.jpg", isomap)
-    renderFaceTo2D(im,mesh,pose,isomap)
+    cv2.imwrite("./webview/example.jpg", isomap)
+    # renderFaceTo2D(im,mesh,pose,isomap)
 
-    newim = np.zeros((im.shape[0]*5,im.shape[1]*5, im.shape[2]), np.uint8)
-
+    newim = np.zeros((im.shape[0] * 5, im.shape[1] * 5, im.shape[2]), np.uint8)
     count = 0
     for i in np.linspace(-3, 3, 5):
         for j in np.linspace(-3, 3, 5):
@@ -112,7 +111,7 @@ def main():
 
             warpedIm = warpFace3D(im, mesh, pose, newMesh)
             cv2.imshow("warped", warpedIm)
-            cv2.imwrite(".webview/example_%i.jpg"%count, warpedIm)
+            cv2.imwrite("./webview/example_%i.jpg"%count, warpedIm)
             cv2.waitKey(1)
 
             x = count % 5
