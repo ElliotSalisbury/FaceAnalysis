@@ -25,8 +25,8 @@ def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures"):
         testY = np.array(group["attractiveness"][trainSize:].as_matrix().tolist())
 
         pca = fitPCA(trainX)
-        reducedTrainX = pca.transform(trainX)
-        reducedTestX = pca.transform(testX)
+        # reducedTrainX = pca.transform(trainX)
+        # reducedTestX = pca.transform(testX)
 
 
         bounds = np.zeros((2, 2))
@@ -40,9 +40,9 @@ def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures"):
             kernel = sklearn.gaussian_process.kernels.ConstantKernel(constant,constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
             gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
 
-            gp.fit(reducedTrainX, trainY)
+            gp.fit(trainX, trainY)
 
-            score = gp.score(reducedTestX, testY)
+            score = gp.score(testX, testY)
 
             print("gp (%0.4f, %0.4f) = %0.10f" % (alpha, constant, score))
             return -score
@@ -52,8 +52,8 @@ def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures"):
 
         kernel = sklearn.gaussian_process.kernels.ConstantKernel(constant,constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
         gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
-        gp.fit(reducedTrainX, trainY)
-        score = gp.score(reducedTestX, testY)
+        gp.fit(trainX, trainY)
+        score = gp.score(testX, testY)
         print("gp (%0.4f, %0.4f) = %0.10f" % (alpha, constant, score))
 
         pickle.dump((pca,gp), open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))

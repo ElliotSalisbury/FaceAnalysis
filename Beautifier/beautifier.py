@@ -5,7 +5,7 @@ import os
 import scipy
 from sklearn import gaussian_process
 from warpFace import warpFace
-from US10K import loadUS10KFacialFeatures
+from US10K import loadUS10KFacialFeatures, loadUS10KPCAGP
 from RateMe import loadRateMeFacialFeatures
 from faceFeatures import getNormalizingFactor, getFaceFeatures
 
@@ -44,8 +44,7 @@ def findBestFeaturesKNN(myFeatures, pca, gp, trainX, trainY):
         features = trainX[indexs]
         kNewFeatures[k, :] = np.sum((weights * features), axis=0) / np.sum(weights)
 
-    reducedFeatures = pca.transform(kNewFeatures)
-    y_pred = gp.predict(reducedFeatures)
+    y_pred = gp.predict(kNewFeatures)
     bestK = np.argmax(y_pred, 0)
 
     return kNewFeatures[bestK]
@@ -53,9 +52,9 @@ def findBestFeaturesKNN(myFeatures, pca, gp, trainX, trainY):
 def findBestFeaturesOptimisation(myFeatures, pca, gp):
     print("finding optimal face features optimisation")
     iterCount = 0
-    def GPCostFunction(reducedFeatures):
+    def GPCostFunction(features):
         nonlocal iterCount
-        y_pred, sigma2_pred = gp.predict([reducedFeatures], return_std=True)
+        y_pred, sigma2_pred = gp.predict([features], return_std=True)
 
         iterCount += 1
         if iterCount % 100 == 0:
@@ -63,21 +62,19 @@ def findBestFeaturesOptimisation(myFeatures, pca, gp):
 
         return -y_pred / sigma2_pred
 
-    reducedFeatures = pca.transform(myFeatures)
+    bounds = np.zeros((myFeatures.shape[1],2))
+    bounds[:, 0] = myFeatures - 0.15
+    bounds[:,1] = myFeatures + 0.15
 
-    bounds = np.zeros((reducedFeatures.shape[1],2))
-    bounds[:, 0] = reducedFeatures - 0.15
-    bounds[:,1] = reducedFeatures + 0.15
-
-    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, reducedFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
-    return pca.inverse_transform(optimalNewFaceFeatures.x)
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    return optimalNewFaceFeatures.x
 
 def findBestFeaturesOptimisation2(myFeatures, pca, gp):
     print("finding optimal face features optimisation")
     iterCount = 0
-    def GPCostFunction(reducedFeatures):
+    def GPCostFunction(features):
         nonlocal iterCount
-        y_pred, cov = gp.predict([reducedFeatures], return_cov=True)
+        y_pred, cov = gp.predict([features], return_cov=True)
 
         iterCount += 1
         if iterCount % 100 == 0:
@@ -85,39 +82,36 @@ def findBestFeaturesOptimisation2(myFeatures, pca, gp):
 
         return -y_pred / cov
 
-    reducedFeatures = pca.transform(myFeatures)
+    bounds = np.zeros((myFeatures.shape[1],2))
+    bounds[:, 0] = myFeatures - 0.15
+    bounds[:,1] = myFeatures + 0.15
 
-    bounds = np.zeros((reducedFeatures.shape[1],2))
-    bounds[:, 0] = reducedFeatures - 0.15
-    bounds[:,1] = reducedFeatures + 0.15
-
-    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, reducedFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
-    return pca.inverse_transform(optimalNewFaceFeatures.x)
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    return optimalNewFaceFeatures.x
 
 def findBestFeaturesOptimisation3(myFeatures, pca, gp):
     print("finding optimal face features optimisation")
     iterCount = 0
-    def GPCostFunction(reducedFeatures):
+    def GPCostFunction(features):
         nonlocal iterCount
-        y_pred = gp.predict([reducedFeatures])
+        y_pred = gp.predict([features])
 
+        reducedFeatures = pca.transform([features])
         LP = np.sum((-np.square(reducedFeatures)) / (2 * pca.explained_variance_))
 
         iterCount += 1
         if iterCount % 100 == 0:
             print("%i - %0.2f - %0.2f"%(iterCount, y_pred, LP))
 
-        alpha = 0.2
+        alpha = 0.4
         return (alpha-1)*y_pred - alpha*LP
 
-    reducedFeatures = pca.transform(myFeatures)
+    bounds = np.zeros((myFeatures.shape[0],2))
+    bounds[:, 0] = myFeatures - 0.15
+    bounds[:,1] = myFeatures + 0.15
 
-    bounds = np.zeros((reducedFeatures.shape[1],2))
-    bounds[:, 0] = reducedFeatures - 0.15
-    bounds[:,1] = reducedFeatures + 0.15
-
-    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, reducedFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
-    return pca.inverse_transform(optimalNewFaceFeatures.x)
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    return optimalNewFaceFeatures.x
 
 def solveForEyes(oldLandmarks, newLandmarks):
     for eye_points in [LEFT_EYE_POINTS, RIGHT_EYE_POINTS]:
@@ -242,8 +236,7 @@ if __name__ == "__main__":
     #load the GP that learnt attractiveness
     ratemepca, ratemegp = pickle.load(
         open(os.path.join(scriptFolder,"../rRateMe/GP_F.p"), "rb"))
-    us10kpca, us10kgp = pickle.load(
-        open(os.path.join(scriptFolder,"../US10k/GP_F.p"), "rb"))
+    us10kpca, us10kgp = loadUS10KPCAGP(type="2d", gender="F")
 
     print("begin beautification")
 

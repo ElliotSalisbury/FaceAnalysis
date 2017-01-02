@@ -63,7 +63,7 @@ def saveFacialFeatures(demographicsData):
 def loadUS10KFacialFeatures():
     return pd.read_pickle(os.path.join(scriptFolder, "US10KData.p"))
 def loadUS10KPCAGP(type="2d", gender="F"):
-    return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender))), "rb")
+    return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
 
 if __name__ == "__main__":
     demographicsData = readUS10kDemographics()
