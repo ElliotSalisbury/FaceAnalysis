@@ -3,6 +3,7 @@ import os
 from gaussianProcess import trainGP
 import cv2
 import pandas as pd
+import pickle
 
 from faceFeatures import getFaceFeatures
 from face3D.faceFeatures3D import getFaceFeatures3D
@@ -70,6 +71,8 @@ def saveFacialFeatures(combinedcsvpath):
 
 def loadRateMeFacialFeatures():
     return pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
+def loadRateMePCAGP(type="2d", gender="F"):
+    return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
 
 if __name__ == "__main__":
     rateMeFolder = "E:\\Facedata\\RateMe"

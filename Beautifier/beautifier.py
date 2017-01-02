@@ -6,7 +6,7 @@ import scipy
 from sklearn import gaussian_process
 from warpFace import warpFace
 from US10K import loadUS10KFacialFeatures, loadUS10KPCAGP
-from RateMe import loadRateMeFacialFeatures
+from RateMe import loadRateMeFacialFeatures, loadRateMePCAGP
 from faceFeatures import getNormalizingFactor, getFaceFeatures
 
 FACE_POINTS = list(range(17, 68))
@@ -62,11 +62,11 @@ def findBestFeaturesOptimisation(myFeatures, pca, gp):
 
         return -y_pred / sigma2_pred
 
-    bounds = np.zeros((myFeatures.shape[1],2))
+    bounds = np.zeros((myFeatures.shape[0],2))
     bounds[:, 0] = myFeatures - 0.15
     bounds[:,1] = myFeatures + 0.15
 
-    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', options={"maxiter":5,"eps":0.001})
     return optimalNewFaceFeatures.x
 
 def findBestFeaturesOptimisation2(myFeatures, pca, gp):
@@ -82,11 +82,11 @@ def findBestFeaturesOptimisation2(myFeatures, pca, gp):
 
         return -y_pred / cov
 
-    bounds = np.zeros((myFeatures.shape[1],2))
+    bounds = np.zeros((myFeatures.shape[0],2))
     bounds[:, 0] = myFeatures - 0.15
     bounds[:,1] = myFeatures + 0.15
 
-    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', options={"maxiter":5,"eps":0.001})
     return optimalNewFaceFeatures.x
 
 def findBestFeaturesOptimisation3(myFeatures, pca, gp):
@@ -110,7 +110,7 @@ def findBestFeaturesOptimisation3(myFeatures, pca, gp):
     bounds[:, 0] = myFeatures - 0.15
     bounds[:,1] = myFeatures + 0.15
 
-    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', bounds=bounds, options={"maxiter":5,"eps":0.001})
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, myFeatures, method='SLSQP', options={"maxiter":5,"eps":0.001})
     return optimalNewFaceFeatures.x
 
 def solveForEyes(oldLandmarks, newLandmarks):
@@ -219,32 +219,31 @@ def beautifyIm(im, pca, gp, trainX, trainY, method='KNN'):
     return beautifiedFace
 
 if __name__ == "__main__":
+    GENDER = "F"
+
     dstFolder = "./results/"
     us10kdf = loadUS10KFacialFeatures()
     ratemedf = loadRateMeFacialFeatures()
 
-    us10kwomen = us10kdf.loc[us10kdf['gender'] == 'F']
-    ratemewomen = ratemedf.loc[ratemedf['gender'] == 'F']
+    us10kgendered = us10kdf.loc[us10kdf['gender'] == GENDER]
+    ratemegendered = ratemedf.loc[ratemedf['gender'] == GENDER]
 
     #split into training sets
-    us10kTrainX = np.array(us10kwomen["facefeatures"].as_matrix().tolist())
-    us10kTrainY = np.array(us10kwomen["attractiveness"].as_matrix().tolist())
+    us10kTrainX = np.array(us10kgendered["facefeatures"].as_matrix().tolist())
+    us10kTrainY = np.array(us10kgendered["attractiveness"].as_matrix().tolist())
 
-    ratemeTrainX = np.array(ratemewomen["facefeatures"].as_matrix().tolist())
-    ratemeTrainY = np.array(ratemewomen["attractiveness"].as_matrix().tolist())
+    ratemeTrainX = np.array(ratemegendered["facefeatures"].as_matrix().tolist())
+    ratemeTrainY = np.array(ratemegendered["attractiveness"].as_matrix().tolist())
 
     #load the GP that learnt attractiveness
-    ratemepca, ratemegp = pickle.load(
-        open(os.path.join(scriptFolder,"../rRateMe/GP_F.p"), "rb"))
-    us10kpca, us10kgp = loadUS10KPCAGP(type="2d", gender="F")
+    ratemepca, ratemegp = loadRateMePCAGP(type="2d", gender=GENDER)
+    us10kpca, us10kgp = loadUS10KPCAGP(type="2d", gender=GENDER)
 
     print("begin beautification")
 
-    im=cv2.imread("C:\\Users\\ellio\\Desktop\\lena.bmp")
+    im=cv2.imread("C:\\Users\\ellio\\Desktop\\test.png")
     compareMethods(im, ".\\beautified.jpg", us10kpca, ratemepca, us10kgp, ratemegp, us10kTrainX, us10kTrainY, ratemeTrainX, ratemeTrainY)
 
-
-    #
     # # for each of the test set, make them more beautiful
     # for t in range(len(testX)):
     #     print("working on face %i"%t)
@@ -257,9 +256,9 @@ if __name__ == "__main__":
     #     im = cv2.imread(myImpath)
     #
     #     US10KKNN = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='KNN')
-    #     US10KGP = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='GP')
+    #     US10KGP = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='GP3')
     #     RateMeKNN = beautifyFace(im, myLandmarks, myFeatures, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='KNN')
-    #     RateMeGP = beautifyFace(im, myLandmarks, myFeatures, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='GP')
+    #     RateMeGP = beautifyFace(im, myLandmarks, myFeatures, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='GP3')
     #
     #     displayIm = np.zeros((im.shape[0]*2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
     #     displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
