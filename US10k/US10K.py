@@ -5,9 +5,9 @@ import cv2
 import dlib
 import numpy as np
 import pandas as pd
-from faceFeatures import getFaceFeatures
-from face3D.faceFeatures3D import getFaceFeatures3D
-from gaussianProcess import trainGP
+from Beautifier.faceFeatures import getFaceFeatures
+from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D
+from Beautifier.gaussianProcess import trainGP
 
 #quickly change gender settings
 GENDER_DICT = {0:"F",1:"M"}

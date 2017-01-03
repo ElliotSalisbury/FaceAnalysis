@@ -2,12 +2,12 @@ import eos
 import numpy as np
 import os
 import cv2
-from faceFeatures import getLandmarks
+from Beautifier.faceFeatures import getLandmarks
 import json
-from face3D.warpFace3D import warpFace3D, project, renderFaceTo2D
+from Beautifier.face3D.warpFace3D import warpFace3D, project, renderFaceTo2D
 import math
 
-EOS_SHARE_PATH = "E:\eos\install\share"
+EOS_SHARE_PATH = os.environ['EOS_DATA_PATH']
 
 landmark_ids = list(map(str, range(1, 69)))  # generates the numbers 1 to 68, as strings
 model = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"sfm_shape_3448.bin"))
@@ -26,7 +26,7 @@ def getMeshFromLandmarks(landmarks, im):
                                                                                    landmark_mapper,
                                                                                    image_width, image_height,
                                                                                    edge_topology, contour_landmarks,
-                                                                                   model_contour)
+                                                                                   model_contour)#, num_shape_coefficients_to_fit=10)
     return mesh, pose, shape_coeffs, blendshape_coeffs
 
 def getFaceFeatures3D(im, landmarks=None):
@@ -87,7 +87,7 @@ def ensureImageLessThanMax(im, maxsize=512):
 
 def main():
     # im = cv2.imread("C:\\Users\\Elliot\\Desktop\\fb\\MyFaces\\8.0\\0151.jpg")
-    im = cv2.imread("C:\\Users\\ellio\\Desktop\\test2.jpg")[:,:,:3]
+    im = cv2.imread("C:\\Users\\ellio\\Desktop\\test.png")[:,:,:3]
     im = ensureImageLessThanMax(im, 1024)
 
     landmarks = getLandmarks(im)
@@ -104,8 +104,8 @@ def main():
     for i in np.linspace(-3, 3, 5):
         for j in np.linspace(-3, 3, 5):
             new_coeffs = list(shape_coeffs)
-            new_coeffs[0] += i
-            new_coeffs[1] += j
+            new_coeffs[2] += i
+            new_coeffs[3] += j
 
             newMesh = eos.morphablemodel.draw_sample(model, blendshapes, new_coeffs, blendshape_coeffs, [])
 

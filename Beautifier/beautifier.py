@@ -4,10 +4,10 @@ import pickle
 import os
 import scipy
 from sklearn import gaussian_process
-from warpFace import warpFace
-from US10K import loadUS10KFacialFeatures, loadUS10KPCAGP
-from RateMe import loadRateMeFacialFeatures, loadRateMePCAGP
-from faceFeatures import getNormalizingFactor, getFaceFeatures
+from Beautifier.warpFace import warpFace
+from US10K.US10K import loadUS10KFacialFeatures, loadUS10KPCAGP
+from RateMe.RateMe import loadRateMeFacialFeatures, loadRateMePCAGP
+from Beautifier.faceFeatures import getNormalizingFactor, getFaceFeatures
 
 FACE_POINTS = list(range(17, 68))
 MOUTH_POINTS = list(range(48, 61))

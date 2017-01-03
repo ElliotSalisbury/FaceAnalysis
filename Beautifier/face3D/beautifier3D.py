@@ -1,15 +1,11 @@
 import numpy as np
 import cv2
-import pickle
-import scipy
-from sklearn import gaussian_process
-from warpFace import warpFace
-from US10K import loadUS10KFacialFeatures, loadUS10KPCAGP
-from RateMe import loadRateMeFacialFeatures, loadRateMePCAGP
-from beautifier import findBestFeaturesKNN, findBestFeaturesOptimisation, findBestFeaturesOptimisation2, findBestFeaturesOptimisation3
-from faceFeatures import getLandmarks
-from face3D.faceFeatures3D import getFaceFeatures3D, getMeshFromLandmarks, model, blendshapes
-from face3D.warpFace3D import warpFace3D
+from US10k.US10K import loadUS10KFacialFeatures, loadUS10KPCAGP
+from RateMe.RateMe import loadRateMeFacialFeatures, loadRateMePCAGP
+from Beautifier.beautifier import findBestFeaturesKNN, findBestFeaturesOptimisation, findBestFeaturesOptimisation2, findBestFeaturesOptimisation3
+from Beautifier.faceFeatures import getLandmarks
+from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D, getMeshFromLandmarks, model, blendshapes
+from Beautifier.face3D.warpFace3D import warpFace3D
 import eos
 import os
 
