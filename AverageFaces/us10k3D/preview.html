@@ -61,12 +61,10 @@
 				camera.position.x = 500;
 
 				controls = new THREE.OrbitControls( camera, renderer.domElement );
-				controls.enableZoom = true;
-
 				//controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
 				controls.enableDamping = true;
 				controls.dampingFactor = 0.25;
-				controls.enableZoom = false;
+				controls.enableZoom = true;
 
 				// world
 //				var geometry = new THREE.BoxGeometry(5, 5, 5);

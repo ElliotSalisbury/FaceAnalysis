@@ -26,10 +26,42 @@
 
 		<script src="js/controls/OrbitControls.js"></script>
 		<script src="js/dat.gui.js"></script>
+		<script id="vertex_shh" type="x-shader/x-vertex">
+			varying vec2 vUv;
+
+			void main()
+			{
+				vUv = uv;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				gl_Position = projectionMatrix * mvPosition;
+			}
+		</script>
+		<script id="fragment_shh" type="x-shader/x-fragment">
+			#ifdef GL_ES
+			precision highp float;
+			#endif
+
+			uniform sampler2D faces[5];
+			uniform float alphas[5];
+
+			varying vec2 vUv;
+
+			void main(void)
+			{
+				vec3 c;
+				for(int i = 0; i < 5; i++) {
+					vec4 C = texture2D(faces[i], vUv);
+					c += C.rgb * alphas[i];
+				}
+			    gl_FragColor= vec4(c, 1.0);
+			}
+		</script>
 
 		<script>
 			var camera, controls, scene, renderer;
 			var face, mixer;
+			var vertShader = document.getElementById('vertex_shh').innerHTML;
+			var fragShader = document.getElementById('fragment_shh').innerHTML;
 			
 			var FACENAMES = [
 				"averageFaces_F_1.46_30",
@@ -44,6 +76,24 @@
 //				"averageFaces_M_4.46_25",
 			];
 			var geometrys = [];
+
+			var textureArray = [];
+			for (var i in FACENAMES) {
+				var FACENAME = FACENAMES[i];
+				textureArray.push(THREE.ImageUtils.loadTexture("./" + FACENAME + ".jpg"))
+			}
+
+			var uniforms = {    // custom uniforms (your textures)
+				faces: { type: "tv", value: textureArray },
+				alphas : {type: "fv1", value: [1,0,0,0,0]}
+			};
+
+			var material_shh = new THREE.ShaderMaterial({
+				uniforms: uniforms,
+				vertexShader: vertShader,
+				fragmentShader: fragShader,
+				morphTargets: true
+			});
 		
 			function loadmesh(FACENAME, i){
 				return function ( geometry ) {
@@ -69,10 +119,6 @@
 				//only run when all geometry is loaded
 				if (arrayContainsArray(geometrys, FACENAMES)) {
 					var faceGeometry = geometrys[FACENAMES[0]];
-					var material = new THREE.MeshPhongMaterial( {
-						map: THREE.ImageUtils.loadTexture('./'+FACENAMES[2]+'.jpg'),
-						morphTargets: true
-					} );
 					
 					var i = 0;
 					for (var key in geometrys) {
@@ -81,7 +127,7 @@
 					}
 					faceGeometry.computeMorphNormals();
 					
-					face = new THREE.Mesh( faceGeometry, material );
+					face = new THREE.Mesh( faceGeometry, material_shh );
 					scene.add( face );
 					
 					mixer = new THREE.AnimationMixer( face );
@@ -174,6 +220,8 @@
 					var time = Date.now();
 					mixer.update( ( time - prevTime ) * 0.001 );
 					prevTime = time;
+
+					uniforms.alphas.value = face.morphTargetInfluences;
 				}
 				renderer.render( scene, camera );
 			}
