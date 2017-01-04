@@ -5,9 +5,10 @@ import os
 
 #initialize dlib detector
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
-FACESWAP_SHAPEPREDICTOR_PATH = os.path.join(scriptFolder,"shape_predictor_68_face_landmarks.dat")
+DLIB_SHAPEPREDICTOR_PATH = os.environ['DLIB_SHAPEPREDICTOR_PATH']
+
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor(FACESWAP_SHAPEPREDICTOR_PATH)
+predictor = dlib.shape_predictor(DLIB_SHAPEPREDICTOR_PATH)
 
 faceLines = np.load(os.path.join(scriptFolder,"lines.npy"))
 

@@ -28,7 +28,7 @@ if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
 
     pca, gp = pickle.load(
-        open(os.path.join(scriptFolder, "../rRateMe/GP_F.p"), "rb"))
+        open(os.path.join(scriptFolder, "../RateMe/GP_F.p"), "rb"))
 
     ratemedf = loadRateMeFacialFeatures()
     ratemegendered = ratemedf.loc[ratemedf['gender'] == 'F']

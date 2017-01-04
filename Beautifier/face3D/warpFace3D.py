@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from warpFace import warpFace, warpTriangle
+from Beautifier.warpFace import warpFace, warpTriangle
 
 MESH_LANDMARKS_TO_VERTS=np.array([
 -1,
