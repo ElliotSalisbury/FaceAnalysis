@@ -211,6 +211,6 @@ def exportAverageFace(outpath, gender, hotness, hotFacefeatures, hotImpaths, hot
 
 if __name__ == "__main__":
     #load in the dataframes for analysis
-    df = pd.read_pickle("../US10K/US10KData.p")
+    df = pd.read_pickle("../US10k/US10kData.p")
 
     averageFaces3D(df, "./us10k3D/")

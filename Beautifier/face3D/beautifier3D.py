@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from US10k.US10K import loadUS10KFacialFeatures, loadUS10KPCAGP
+from US10k.US10k import loadUS10kFacialFeatures, loadUS10kPCAGP
 from RateMe.RateMe import loadRateMeFacialFeatures, loadRateMePCAGP
 from Beautifier.beautifier import findBestFeaturesKNN, findBestFeaturesOptimisation, findBestFeaturesOptimisation2, findBestFeaturesOptimisation3
 from Beautifier.faceFeatures import getLandmarks
@@ -34,19 +34,19 @@ def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN'):
 def compareMethods(im, outpath, us10kpca, ratemepca, us10kgp, ratemegp, us10kTrainX, us10kTrainY, ratemeTrainX, ratemeTrainY):
     landmarks = getLandmarks(im)
 
-    US10KKNN = beautifyFace3D(im, landmarks, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='KNN')
-    US10KGP = beautifyFace3D(im, landmarks, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='GP3')
+    US10kKNN = beautifyFace3D(im, landmarks, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='KNN')
+    US10kGP = beautifyFace3D(im, landmarks, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='GP3')
     RateMeKNN = beautifyFace3D(im, landmarks, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method='KNN')
     RateMeGP = beautifyFace3D(im, landmarks, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method='GP3')
 
     displayIm = np.zeros((im.shape[0] * 2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
     displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
-    displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10KKNN
-    displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10KGP
+    displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10kKNN
+    displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10kGP
     displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = RateMeKNN
     displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = RateMeGP
 
-    diff = np.abs(np.float32(im) - np.float32(US10KGP))
+    diff = np.abs(np.float32(im) - np.float32(US10kGP))
     diff = (diff / np.max(diff)) * 255
     displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     GENDER = "F"
 
     dstFolder = "./results/"
-    us10kdf = loadUS10KFacialFeatures()
+    us10kdf = loadUS10kFacialFeatures()
     ratemedf = loadRateMeFacialFeatures()
 
     us10kgendered = us10kdf.loc[us10kdf['gender'] == GENDER]
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     # load the GP that learnt attractiveness
     ratemepca, ratemegp = loadRateMePCAGP(type="3d", gender=GENDER)
-    us10kpca, us10kgp = loadUS10KPCAGP(type="3d", gender=GENDER)
+    us10kpca, us10kgp = loadUS10kPCAGP(type="3d", gender=GENDER)
 
     print("begin beautification")
 

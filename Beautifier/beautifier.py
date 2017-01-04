@@ -5,7 +5,7 @@ import os
 import scipy
 from sklearn import gaussian_process
 from Beautifier.warpFace import warpFace
-from US10K.US10K import loadUS10KFacialFeatures, loadUS10KPCAGP
+from US10k.US10k import loadUS10kFacialFeatures, loadUS10kPCAGP
 from RateMe.RateMe import loadRateMeFacialFeatures, loadRateMePCAGP
 from Beautifier.faceFeatures import getNormalizingFactor, getFaceFeatures
 
@@ -185,19 +185,19 @@ def beautifyFace(im, landmarks, features, pca, gp, trainX, trainY, method='KNN')
 def compareMethods(im, outpath, us10kpca, ratemepca, us10kgp, ratemegp, us10kTrainX, us10kTrainY, ratemeTrainX, ratemeTrainY):
     landmarks, faceFeatures = getFaceFeatures(im)
 
-    US10KKNN = beautifyFace(im, landmarks, faceFeatures, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='KNN')
-    US10KGP = beautifyFace(im, landmarks, faceFeatures, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='GP3')
+    US10kKNN = beautifyFace(im, landmarks, faceFeatures, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='KNN')
+    US10kGP = beautifyFace(im, landmarks, faceFeatures, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='GP3')
     RateMeKNN = beautifyFace(im, landmarks, faceFeatures, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method='KNN')
     RateMeGP = beautifyFace(im, landmarks, faceFeatures, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method='GP3')
 
     displayIm = np.zeros((im.shape[0] * 2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
     displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
-    displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10KKNN
-    displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10KGP
+    displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10kKNN
+    displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10kGP
     displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = RateMeKNN
     displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = RateMeGP
 
-    diff = np.abs(np.float32(im) - np.float32(US10KGP))
+    diff = np.abs(np.float32(im) - np.float32(US10kGP))
     diff = (diff / np.max(diff)) * 255
     displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
 
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     GENDER = "F"
 
     dstFolder = "./results/"
-    us10kdf = loadUS10KFacialFeatures()
+    us10kdf = loadUS10kFacialFeatures()
     ratemedf = loadRateMeFacialFeatures()
 
     us10kgendered = us10kdf.loc[us10kdf['gender'] == GENDER]
@@ -237,7 +237,7 @@ if __name__ == "__main__":
 
     #load the GP that learnt attractiveness
     ratemepca, ratemegp = loadRateMePCAGP(type="2d", gender=GENDER)
-    us10kpca, us10kgp = loadUS10KPCAGP(type="2d", gender=GENDER)
+    us10kpca, us10kgp = loadUS10kPCAGP(type="2d", gender=GENDER)
 
     print("begin beautification")
 
@@ -255,19 +255,19 @@ if __name__ == "__main__":
     #     #morph the face
     #     im = cv2.imread(myImpath)
     #
-    #     US10KKNN = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='KNN')
-    #     US10KGP = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='GP3')
+    #     US10kKNN = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='KNN')
+    #     US10kGP = beautifyFace(im, myLandmarks, myFeatures, us10kpca, us10kgp, trainX, trainY, method='GP3')
     #     RateMeKNN = beautifyFace(im, myLandmarks, myFeatures, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='KNN')
     #     RateMeGP = beautifyFace(im, myLandmarks, myFeatures, ratemepca, ratemegp, trainXRateMe, trainYRateMe, method='GP3')
     #
     #     displayIm = np.zeros((im.shape[0]*2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
     #     displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
-    #     displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10KKNN
-    #     displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10KGP
+    #     displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10kKNN
+    #     displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10kGP
     #     displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = RateMeKNN
     #     displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = RateMeGP
     #
-    #     diff = np.abs(np.float32(im) - np.float32(US10KGP))
+    #     diff = np.abs(np.float32(im) - np.float32(US10kGP))
     #     diff = (diff / np.max(diff)) * 255
     #     displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
     #
@@ -280,4 +280,4 @@ if __name__ == "__main__":
     #     cv2.imwrite(os.path.join(dstFolder, "%04d.jpg" % t), displayIm)
     #
     #     cv2.imwrite(os.path.join(os.path.join(dstFolder, "gp_compare"), "%04d_1.jpg" % t), im)
-    #     cv2.imwrite(os.path.join(os.path.join(dstFolder, "gp_compare"), "%04d_2.jpg" % t), US10KGP)
+    #     cv2.imwrite(os.path.join(os.path.join(dstFolder, "gp_compare"), "%04d_2.jpg" % t), US10kGP)

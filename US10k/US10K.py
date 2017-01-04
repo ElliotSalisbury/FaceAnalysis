@@ -12,7 +12,7 @@ from Beautifier.gaussianProcess import trainGP
 #quickly change gender settings
 GENDER_DICT = {0:"F",1:"M"}
 
-#US10K data location
+#US10k data location
 demographicscsv = "E:\\Facedata\\10k US Adult Faces Database\\Full Attribute Scores\\demographic & others labels\\demographic-others-labels-final.csv"
 imfolder = "E:\\Facedata\\10k US Adult Faces Database\\Face Images"
 #output location
@@ -20,7 +20,7 @@ scriptFolder = os.path.dirname(os.path.realpath(__file__))
 
 
 def readUS10kDemographics():
-    print("reading US10K demographics data")
+    print("reading US10k demographics data")
     demographicsData = []
     with open(demographicscsv, 'r') as demoF:
         reader = csv.reader(demoF)
@@ -56,19 +56,19 @@ def saveFacialFeatures(demographicsData):
                 print("%i / %i"%(i,len(demographicsData)))
 
     allDataDF = pd.DataFrame(allData)
-    allDataDF.to_pickle(os.path.join(scriptFolder,"US10KData.p"))
+    allDataDF.to_pickle(os.path.join(scriptFolder,"US10kData.p"))
 
     return allDataDF
 
-def loadUS10KFacialFeatures():
-    return pd.read_pickle(os.path.join(scriptFolder, "US10KData.p"))
-def loadUS10KPCAGP(type="2d", gender="F"):
+def loadUS10kFacialFeatures():
+    return pd.read_pickle(os.path.join(scriptFolder, "US10kData.p"))
+def loadUS10kPCAGP(type="2d", gender="F"):
     return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
 
 if __name__ == "__main__":
     demographicsData = readUS10kDemographics()
     df = saveFacialFeatures(demographicsData)
-    # df = loadUS10KFacialFeatures()
+    # df = loadUS10kFacialFeatures()
 
     trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.8)
     trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D")
