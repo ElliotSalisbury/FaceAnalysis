@@ -4,7 +4,7 @@ import os
 import cv2
 from faceFeatures import getLandmarks
 import json
-from face3D.warpFace3D import warpFace3D, project, renderFaceTo2D
+from face3D.warpFace3D import warpFace3D, project, renderFaceTo2D, drawMesh
 import math
 
 EOS_SHARE_PATH = "C:\eos\install\share"
@@ -17,17 +17,36 @@ edge_topology = eos.morphablemodel.load_edge_topology(os.path.join(EOS_SHARE_PAT
 contour_landmarks = eos.fitting.ContourLandmarks.load(os.path.join(EOS_SHARE_PATH,"ibug2did.txt"))
 model_contour = eos.fitting.ModelContour.load(os.path.join(EOS_SHARE_PATH,"model_contours.json"))
 
-def getMeshFromLandmarks(landmarks, im):
+def getMeshFromLandmarks(landmarks, im, num_iterations=5, num_shape_coefficients_to_fit=-1):
     image_width = im.shape[1]
     image_height = im.shape[0]
 
-    (mesh, pose, shape_coeffs, blendshape_coeffs) = eos.fitting.fit_shape_and_pose(model, blendshapes,
-                                                                                   landmarks, landmark_ids,
+    (meshs, poses, shape_coeffs, blendshape_coeffss) = eos.fitting.fit_shape_and_pose(model, blendshapes,
+                                                                                   [landmarks], landmark_ids,
                                                                                    landmark_mapper,
-                                                                                   image_width, image_height,
+                                                                                   [image_width], [image_height],
                                                                                    edge_topology, contour_landmarks,
-                                                                                   model_contour)
-    return mesh, pose, shape_coeffs, blendshape_coeffs
+                                                                                   model_contour,
+                                                                                   num_iterations=num_iterations,
+                                                                                   num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
+    return meshs[0], poses[0], shape_coeffs, blendshape_coeffss[0]
+
+def getMeshFromMultiLandmarks(landmarkss, ims, num_iterations=5, num_shape_coefficients_to_fit=-1):
+    image_widths = []
+    image_heights = []
+    for im in ims:
+        image_widths.append(im.shape[1])
+        image_heights.append(im.shape[0])
+
+    (meshs, poses, shape_coeffs, blendshape_coeffss) = eos.fitting.fit_shape_and_pose(model, blendshapes,
+                                                                                   landmarkss, landmark_ids,
+                                                                                   landmark_mapper,
+                                                                                   image_widths, image_heights,
+                                                                                   edge_topology, contour_landmarks,
+                                                                                   model_contour,
+                                                                                   num_iterations=num_iterations,
+                                                                                   num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
+    return meshs, poses, shape_coeffs, blendshape_coeffss
 
 def getFaceFeatures3D(im, landmarks=None):
     if landmarks is None:
