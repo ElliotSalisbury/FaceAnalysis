@@ -220,7 +220,7 @@ def beautifyIm(im, pca, gp, trainX, trainY, method='KNN'):
 
 def rateFace(im, pca, gp):
     landmarks, faceFeatures = getFaceFeatures(im)
-    return gp.predict(faceFeatures)
+    return gp.predict(faceFeatures)[0]
 
 if __name__ == "__main__":
     GENDER = "F"
