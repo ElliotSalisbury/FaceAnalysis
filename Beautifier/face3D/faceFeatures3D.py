@@ -48,7 +48,7 @@ def getMeshFromMultiLandmarks(landmarkss, ims, num_iterations=5, num_shape_coeff
                                                                                    num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
     return meshs, poses, shape_coeffs, blendshape_coeffss
 
-def getFaceFeatures3D(ims, landmarkss=None, num_iterations=5, num_shape_coefficients_to_fit=-1):
+
 def getFaceFeatures3D(ims, landmarkss=None, num_iterations=5, num_shape_coefficients_to_fit=-1):
     imswlandmarks = []
     if landmarkss is None or len(ims) != len(landmarkss):
