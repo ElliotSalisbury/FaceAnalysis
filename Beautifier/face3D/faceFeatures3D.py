@@ -48,15 +48,25 @@ def getMeshFromMultiLandmarks(landmarkss, ims, num_iterations=5, num_shape_coeff
                                                                                    num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
     return meshs, poses, shape_coeffs, blendshape_coeffss
 
-def getFaceFeatures3D(im, landmarks=None):
-    if landmarks is None:
-        landmarks = getLandmarks(im)
-        if landmarks is None:
-            return None
+def getFaceFeatures3D(ims, landmarkss=None, num_iterations=5, num_shape_coefficients_to_fit=-1):
+def getFaceFeatures3D(ims, landmarkss=None, num_iterations=5, num_shape_coefficients_to_fit=-1):
+    imswlandmarks = []
+    if landmarkss is None or len(ims) != len(landmarkss):
+        landmarkss = []
+        for im in ims:
+            landmarks = getLandmarks(im)
+            if landmarks is not None:
+                landmarkss.append(landmarks)
+                imswlandmarks.append(ims)
+    else:
+        imswlandmarks = ims
 
-    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
+    if len(landmarkss) == 0:
+        return None
 
-    return shape_coeffs + blendshape_coeffs
+    meshs, poses, shape_coeffs, blendshape_coeffs = getMeshFromMultiLandmarks(landmarkss, imswlandmarks, num_iterations=num_iterations, num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
+
+    return shape_coeffs
 
 def createTextureMap(mesh, pose, im):
     return eos.render.extract_texture(mesh, pose, im)
