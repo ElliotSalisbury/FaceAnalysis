@@ -57,12 +57,15 @@ def saveFacialFeatures(combinedcsvpath):
             im = cv2.imread(impath)
             im = ensureImageLessThanMax(im)
 
-            landmarks, faceFeatures = getFaceFeatures(im)
-            if landmarks is not None:
+            try:
+                landmarks, faceFeatures = getFaceFeatures(im)
+
                 usedImPaths.append(impath)
                 ims.append(im)
                 landmarkss.append(landmarks)
                 faceFeaturess.append(faceFeatures)
+            except:
+                continue
 
         if len(ims) > 0:
             meshs, poses, shape_coeffs, blendshape_coeffss = getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=10)

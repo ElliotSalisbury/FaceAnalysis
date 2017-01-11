@@ -6,7 +6,7 @@ import dlib
 import numpy as np
 import pandas as pd
 from Beautifier.faceFeatures import getFaceFeatures
-from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D
+from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks
 from Beautifier.gaussianProcess import trainGP
 
 #quickly change gender settings
@@ -45,15 +45,20 @@ def saveFacialFeatures(demographicsData):
             impath = data['Filename']
             im = cv2.imread(impath)
 
-            landmarks, faceFeatures = getFaceFeatures(im)
-            faceFeatures3D = getFaceFeatures3D(im)
+            try:
+                landmarks, faceFeatures = getFaceFeatures(im)
+                mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
 
-            if faceFeatures is not None:
-                dataDict = {"gender": gender, "attractiveness": attractiveScore, "landmarks": landmarks,
-                            "facefeatures": faceFeatures, "facefeatures3D": faceFeatures3D,
-                            "impath": impath}
+                dataDict = {"gender": gender, "attractiveness": attractiveScore,
+                            "landmarks": landmarks, "facefeatures": faceFeatures,
+                            "facefeatures3D": shape_coeffs, "mesh": mesh, "pose": pose, "blendshape_coeffs": blendshape_coeffs,
+                            "impath": impath
+                            }
+
                 allData.append(dataDict)
                 print("%i / %i"%(i,len(demographicsData)))
+            except:
+                continue
 
     allDataDF = pd.DataFrame(allData)
     allDataDF.to_pickle(os.path.join(scriptFolder,"US10kData.p"))
@@ -80,9 +85,9 @@ def loadUS10k(type="2d", gender="F"):
     return trainX, trainY, pca, gp
 
 if __name__ == "__main__":
-    # demographicsData = readUS10kDemographics()
-    # df = saveFacialFeatures(demographicsData)
-    df = loadUS10kFacialFeatures()
+    demographicsData = readUS10kDemographics()
+    df = saveFacialFeatures(demographicsData)
+    # df = loadUS10kFacialFeatures()
 
     trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.8)
-    trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D")
+    trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D", train_on_PCA=False)
