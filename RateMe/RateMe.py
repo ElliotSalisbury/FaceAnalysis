@@ -121,6 +121,8 @@ def loadRateMePCAGP(type="2d", gender="F"):
     return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
 def loadRateMe(type="2d", gender="F"):
     df = loadRateMeFacialFeatures()
+    if type=="2d":
+        df = dataFrameTo2D(df)
 
     df_G = df.loc[df['gender'] == gender]
 
