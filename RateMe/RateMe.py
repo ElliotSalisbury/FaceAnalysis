@@ -6,6 +6,7 @@ import pickle
 from Beautifier.gaussianProcess import trainGP
 from Beautifier.faceFeatures import getFaceFeatures
 from Beautifier.face3D.faceFeatures3D import getMeshFromMultiLandmarks
+import numpy as np
 
 MAX_IM_SIZE = 512
 
@@ -115,6 +116,20 @@ def loadRateMeFacialFeatures():
     return pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
 def loadRateMePCAGP(type="2d", gender="F"):
     return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
+def loadRateMe(type="2d", gender="F"):
+    df = loadRateMeFacialFeatures()
+
+    df_G = df.loc[df['gender'] == gender]
+
+    featuresIndex = "facefeatures"
+    if type=="3d":
+        featuresIndex = "facefeatures3D"
+
+    trainX = np.array(df_G[featuresIndex].as_matrix().tolist())
+    trainY = np.array(df_G["attractiveness"].as_matrix().tolist())
+    pca, gp = loadRateMePCAGP(type=type, gender=gender)
+
+    return trainX, trainY, pca, gp
 
 if __name__ == "__main__":
     rateMeFolder = "E:\\Facedata\\RateMe"

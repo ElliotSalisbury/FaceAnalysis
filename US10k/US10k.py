@@ -64,11 +64,25 @@ def loadUS10kFacialFeatures():
     return pd.read_pickle(os.path.join(scriptFolder, "US10kData.p"))
 def loadUS10kPCAGP(type="2d", gender="F"):
     return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
+def loadUS10k(type="2d", gender="F"):
+    df = loadUS10kFacialFeatures()
+
+    df_G = df.loc[df['gender'] == gender]
+
+    featuresIndex = "facefeatures"
+    if type == "3d":
+        featuresIndex = "facefeatures3D"
+
+    trainX = np.array(df_G[featuresIndex].as_matrix().tolist())
+    trainY = np.array(df_G["attractiveness"].as_matrix().tolist())
+    pca, gp = loadUS10kPCAGP(type=type, gender=gender)
+
+    return trainX, trainY, pca, gp
 
 if __name__ == "__main__":
-    demographicsData = readUS10kDemographics()
-    df = saveFacialFeatures(demographicsData)
-    # df = loadUS10kFacialFeatures()
+    # demographicsData = readUS10kDemographics()
+    # df = saveFacialFeatures(demographicsData)
+    df = loadUS10kFacialFeatures()
 
     trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.8)
     trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D")
