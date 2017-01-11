@@ -85,9 +85,9 @@ def loadUS10k(type="2d", gender="F"):
     return trainX, trainY, pca, gp
 
 if __name__ == "__main__":
-    demographicsData = readUS10kDemographics()
-    df = saveFacialFeatures(demographicsData)
-    # df = loadUS10kFacialFeatures()
+    # demographicsData = readUS10kDemographics()
+    # df = saveFacialFeatures(demographicsData)
+    df = loadUS10kFacialFeatures()
 
     trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.8)
     trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D", train_on_PCA=False)
