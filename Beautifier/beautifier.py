@@ -23,6 +23,11 @@ faceLines = np.load(os.path.join(scriptFolder,"lines.npy"))
 
 def findBestFeaturesKNN(myFeatures, pca, gp, trainX, trainY):
     print("finding optimal face features KNN")
+
+    if pca is not None:
+        myFeatures = pca.transform([myFeatures])[0]
+        trainX = pca.transform(trainX)
+
     # calculate nearest beauty weighted distance to neighbours
     weightedDistances = np.zeros((len(trainX), 1))
     for i in range(len(trainX)):
@@ -47,6 +52,8 @@ def findBestFeaturesKNN(myFeatures, pca, gp, trainX, trainY):
     y_pred = gp.predict(kNewFeatures)
     bestK = np.argmax(y_pred, 0)
 
+    if pca is not None:
+        return pca.inverse_transform(kNewFeatures[bestK])
     return kNewFeatures[bestK]
 
 def findBestFeaturesOptimisation(myFeatures, pca, gp):
@@ -119,15 +126,17 @@ def solveForEyes(oldLandmarks, newLandmarks):
         newEyeLandmarks = newLandmarks[eye_points]
 
         warpMat = cv2.estimateRigidTransform(np.float32(oldEyeLandmarks), np.float32(newEyeLandmarks), fullAffine=False)
-        if warpMat is not None:
-            warpMat = np.vstack([warpMat, [0, 0, 1]])
+        if warpMat is None:
+            raise Exception("Could not keep eye transformations affine.")
 
-            oldEyeLandmarks1 = np.hstack([oldEyeLandmarks, np.ones((oldEyeLandmarks.shape[0],1))])
-            transformed = np.zeros(oldEyeLandmarks1.shape)
-            for i, landmark in enumerate(oldEyeLandmarks1):
-                transformed[i,:] = (np.matrix(warpMat)*landmark[:,np.newaxis]).T
+        warpMat = np.vstack([warpMat, [0, 0, 1]])
 
-            newLandmarks[eye_points] = transformed[:,:2]
+        oldEyeLandmarks1 = np.hstack([oldEyeLandmarks, np.ones((oldEyeLandmarks.shape[0],1))])
+        transformed = np.zeros(oldEyeLandmarks1.shape)
+        for i, landmark in enumerate(oldEyeLandmarks1):
+            transformed[i,:] = (np.matrix(warpMat)*landmark[:,np.newaxis]).T
+
+        newLandmarks[eye_points] = transformed[:,:2]
     return newLandmarks
 
 # construct the weighting so that distances between the same features cost more to change
@@ -176,6 +185,8 @@ def beautifyFace(im, landmarks, features, pca, gp, trainX, trainY, method='KNN')
         newFaceFeatures = findBestFeaturesOptimisation2(features, pca, gp)
     elif method == 'GP3':
         newFaceFeatures = findBestFeaturesOptimisation3(features, pca, gp)
+    else:
+        raise Exception("No such beautification method: %s."%method)
     # construct the landmarks that satisify the distance constraints of the features
     newLandmarks = calculateLandmarksfromFeatures(landmarks, newFaceFeatures)
 
@@ -220,6 +231,8 @@ def beautifyIm(im, pca, gp, trainX, trainY, method='KNN'):
 
 def rateFace(im, pca, gp):
     landmarks, faceFeatures = getFaceFeatures(im)
+    if pca is not None:
+        faceFeatures = pca.transform([faceFeatures])
     return gp.predict(faceFeatures)[0]
 
 if __name__ == "__main__":

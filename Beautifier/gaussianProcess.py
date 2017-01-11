@@ -10,7 +10,7 @@ def fitPCA(trainX):
     pca.fit(trainX)
     return pca
 
-def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures"):
+def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures", train_on_PCA=True):
     #we need to train for both male and female
     grouped = df.groupby("gender")
 
@@ -24,10 +24,12 @@ def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures"):
         testX = np.array(group[featureset][trainSize:].as_matrix().tolist())
         testY = np.array(group["attractiveness"][trainSize:].as_matrix().tolist())
 
-        pca = fitPCA(trainX)
-        # reducedTrainX = pca.transform(trainX)
-        # reducedTestX = pca.transform(testX)
-
+        if train_on_PCA:
+            pca = fitPCA(trainX)
+            trainX = pca.transform(trainX)
+            testX = pca.transform(testX)
+        else:
+            pca = None
 
         bounds = np.zeros((2, 2))
         bounds[0, :] = [0.01, 0.1] #alpha bounds

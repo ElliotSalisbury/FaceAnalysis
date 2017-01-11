@@ -14,8 +14,10 @@ faceLines = np.load(os.path.join(scriptFolder,"lines.npy"))
 
 def getLandmarks(im):
     rects = detector(im, 1)
-    if len(rects) != 1:
-        return None
+    if len(rects) == 0:
+        raise Exception("No face could be detected in the image.")
+    if len(rects) > 1:
+        raise Exception("Multiple faces were detected, we currently only support images of a single face.")
 
     landmarks = np.matrix([[p.x, p.y] for p in predictor(im, rects[0]).parts()])
     landmarks = np.array([[p[0, 0], p[0, 1]] for p in landmarks])
@@ -36,9 +38,6 @@ def featuresFromLandmarks(landmarks):
 
 def getFaceFeatures(im):
     landmarks = getLandmarks(im)
-
-    if landmarks is None:
-        return None, None
 
     faceFeatures = featuresFromLandmarks(landmarks)
 
