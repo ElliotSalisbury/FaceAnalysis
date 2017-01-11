@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
-from US10k.US10k import loadUS10kFacialFeatures, loadUS10kPCAGP
-from RateMe.RateMe import loadRateMeFacialFeatures, loadRateMePCAGP
+from US10k.US10k import loadUS10k
+from RateMe.RateMe import loadRateMe
 from Beautifier.beautifier import findBestFeaturesKNN, findBestFeaturesOptimisation, findBestFeaturesOptimisation2, findBestFeaturesOptimisation3
 from Beautifier.faceFeatures import getLandmarks
 from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D, getMeshFromLandmarks, model, blendshapes
@@ -60,11 +60,20 @@ def compareMethods(im, outpath, us10kpca, ratemepca, us10kgp, ratemegp, us10kTra
     cv2.waitKey(1)
     cv2.imwrite(outpath, displayIm)
 
-def beautifyImFromPath(impath):
+def beautifyIm3DFromPath(impath, pca, gp, trainX, trainY, method='KNN'):
     im = cv2.imread(impath)
+    beautifyIm3D(im, pca, gp, trainX, trainY, method)
 
+def beautifyIm3D(im, pca, gp, trainX, trainY, method='KNN', exaggeration=1.5):
     landmarks = getLandmarks(im)
-    compareMethods(im, landmarks, os.path.join(os.path.dirname(impath),"beautified.jpg"))
+    beautifiedFace = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method, exaggeration=exaggeration)
+    return beautifiedFace
+
+def rateFace3D(im, pca, gp):
+    landmarks = getLandmarks(im)
+    faceFeatures = getFaceFeatures3D([im],[landmarks], num_shape_coefficients_to_fit=10)
+
+    return gp.predict(faceFeatures)[0]
 
 if __name__ == "__main__":
     import glob
@@ -73,29 +82,15 @@ if __name__ == "__main__":
 
     GENDER = "F"
 
-    dstFolder = "./results/"
-    us10kdf = None#loadUS10kFacialFeatures()
-    ratemedf = loadRateMeFacialFeatures()
+    US10k_3D = loadRateMe(type="3d", gender=GENDER)
+    trainX, trainY, pca, gp = US10k_3D
 
-    us10kgendered = None#us10kdf.loc[us10kdf['gender'] == GENDER]
-    ratemegendered = ratemedf.loc[ratemedf['gender'] == GENDER]
-    ratemegendered = ratemegendered.loc[ratemegendered['attractiveness'] > 8]
-
-    # split into training sets
-    us10kTrainX = None#np.array(us10kgendered["facefeatures3D"].as_matrix().tolist())
-    us10kTrainY = None#np.array(us10kgendered["attractiveness"].as_matrix().tolist())
-
-    ratemeTrainX = np.array(ratemegendered["facefeatures3D"].as_matrix().tolist())
-    ratemeTrainY = np.array(ratemegendered["attractiveness"].as_matrix().tolist())
-
-    # load the GP that learnt attractiveness
-    ratemepca, ratemegp = loadRateMePCAGP(type="3d", gender=GENDER)
-    us10kpca, us10kgp = None,None#loadUS10kPCAGP(type="3d", gender=GENDER)
-
-    im = cv2.imread("C:\\Users\\ellio\\Desktop\\front.jpg")
+    im = cv2.imread("C:\\Users\\ellio\\Desktop\\lena.bmp")
     im = ensureImageLessThanMax(im, maxsize=1024)
-    landmarks = getLandmarks(im)
-    better = beautifyFace3D(im, landmarks, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method="KNN")
+
+    rating = rateFace3D(im, pca, gp)
+    print("Rating: %f"%rating)
+    better = beautifyIm3D(im, pca, gp, trainX, trainY, method='KNN', exaggeration=20)
 
     cv2.imshow("b", better)
     cv2.imshow("o", im)
