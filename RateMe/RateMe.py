@@ -5,7 +5,7 @@ import pandas as pd
 import pickle
 from Beautifier.gaussianProcess import trainGP
 from Beautifier.faceFeatures import getFaceFeatures
-from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D
+from Beautifier.face3D.faceFeatures3D import getMeshFromMultiLandmarks
 
 MAX_IM_SIZE = 512
 
@@ -32,7 +32,7 @@ def saveFacialFeatures(combinedcsvpath):
 
     #filter out the weird ages
     filtered = df.loc[df['Submission Age'] >= 18]
-    filtered = df.loc[df['Submission Age'] < 50]
+    filtered = filtered.loc[filtered['Submission Age'] < 50]
 
     grouped = filtered.groupby(['Submission Gender', "Folder"])
 
@@ -48,24 +48,67 @@ def saveFacialFeatures(combinedcsvpath):
         for type in types:
             impaths.extend(glob.glob(os.path.join(folder,type)))
 
+        usedImPaths = []
+        ims = []
+        landmarkss = []
+        faceFeaturess = []
         for impath in impaths:
             im = cv2.imread(impath)
             im = ensureImageLessThanMax(im)
 
             landmarks, faceFeatures = getFaceFeatures(im)
-            faceFeatures3D = getFaceFeatures3D(im, landmarks)
+            if landmarks is not None:
+                usedImPaths.append(impath)
+                ims.append(im)
+                landmarkss.append(landmarks)
+                faceFeaturess.append(faceFeatures)
 
-            if faceFeatures is not None:
-                dataDict = {"gender": gender, "attractiveness": rating, "landmarks": landmarks,
-                            "facefeatures": faceFeatures, "facefeatures3D": faceFeatures3D,
-                            "impath": impath}
-                allData.append(dataDict)
-                print("%i / %i" % (i, len(grouped)))
+        if len(ims) > 0:
+            meshs, poses, shape_coeffs, blendshape_coeffss = getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=10)
+
+            dataDict = {"gender": gender, "attractiveness": rating,
+                        "impaths": usedImPaths, "numImages": len(ims),
+                        "landmarkss": landmarkss, "facefeaturess": faceFeaturess,
+                        "meshs": meshs, "poses": poses, "facefeatures3D": shape_coeffs, "blendshape_coeffss": blendshape_coeffss
+                        }
+            allData.append(dataDict)
+            print("%i / %i" % (i, len(grouped)))
 
     allDataDF = pd.DataFrame(allData)
     allDataDF = allDataDF.sample(frac=1).reset_index(drop=True)
     allDataDF.to_pickle(os.path.join(scriptFolder,"RateMeData.p"))
 
+    return allDataDF
+
+def dataFrameTo2D(df):
+    allData = []
+    for index, row in df.iterrows():
+        gender = row["gender"]
+        attractiveness = row["attractiveness"]
+        facefeatures3D = row["facefeatures3D"]
+
+        impaths = row["impaths"]
+        landmarkss = row["landmarkss"]
+        facefeaturess = row["facefeaturess"]
+        meshs = row["meshs"]
+        poses = row["poses"]
+        blendshape_coeffss = row["blendshape_coeffss"]
+
+        for i in range(row["numImages"]):
+            impath = impaths[i]
+            landmarks = landmarkss[i]
+            facefeatures = facefeaturess[i]
+            mesh = meshs[i]
+            pose = poses[i]
+            blendshape_coeffs = blendshape_coeffss[i]
+
+            dataDict = {"gender": gender, "attractiveness": attractiveness,
+                        "landmarks": landmarks, "facefeatures": facefeatures,
+                        "facefeatures3D": facefeatures3D, "mesh":mesh, "pose":pose, "blendshape_coeffs": blendshape_coeffs,
+                        "impath": impath}
+            allData.append(dataDict)
+    allDataDF = pd.DataFrame(allData)
+    allDataDF = allDataDF.sample(frac=1).reset_index(drop=True)
     return allDataDF
 
 def loadRateMeFacialFeatures():
@@ -80,5 +123,8 @@ if __name__ == "__main__":
     df = saveFacialFeatures(combinedPath)
     # df = loadRateMeFacialFeatures()
 
-    trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.9)
-    trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D")
+    df2d = dataFrameTo2D(df)
+    trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9)
+
+    moreaccurate = df[df["numImages"]>=3]
+    trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False)
