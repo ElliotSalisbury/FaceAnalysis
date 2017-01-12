@@ -137,11 +137,11 @@ def loadRateMe(type="2d", gender="F"):
     return trainX, trainY, pca, gp
 
 if __name__ == "__main__":
-    rateMeFolder = "E:\\Facedata\\RateMe"
-    combinedPath = os.path.join(rateMeFolder, "combined.csv")
-
-    df = saveFacialFeatures(combinedPath)
-    # df = loadRateMeFacialFeatures()
+    # rateMeFolder = "E:\\Facedata\\RateMe"
+    # combinedPath = os.path.join(rateMeFolder, "combined.csv")
+    #
+    # df = saveFacialFeatures(combinedPath)
+    df = loadRateMeFacialFeatures()
 
     df2d = dataFrameTo2D(df)
     trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9)
