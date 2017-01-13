@@ -25,6 +25,9 @@ def ensureImageLessThanMax(im, maxsize=MAX_IM_SIZE):
         im = cv2.resize(im,(width,height))
     return im
 
+def reject_outliers(data, m = 2.):
+    return data[abs(data - np.median(data)) <= m * np.std(data)]
+
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
 def saveFacialFeatures(combinedcsvpath):
     df = pd.read_csv(combinedcsvpath)
@@ -41,7 +44,8 @@ def saveFacialFeatures(combinedcsvpath):
     for i, (genderfolder, group) in enumerate(grouped):
         gender = genderfolder[0]
         folder = genderfolder[1]
-        rating = group["Rating"].mean()
+        ratings = np.array(group["Rating"].as_matrix().tolist())
+        rating = np.mean(reject_outliers(ratings))
 
         #get the image files:
         types = ('*.jpg', '*.png', '*.bmp')
@@ -55,7 +59,7 @@ def saveFacialFeatures(combinedcsvpath):
         faceFeaturess = []
         for impath in impaths:
             im = cv2.imread(impath)
-            im = ensureImageLessThanMax(im)
+            # im = ensureImageLessThanMax(im)
 
             try:
                 landmarks, faceFeatures = getFaceFeatures(im)
