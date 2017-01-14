@@ -40,6 +40,8 @@ def saveFacialFeatures(combinedcsvpath):
 
     grouped = filtered.groupby(['Submission Gender', "Folder"])
 
+    sfile = open(os.path.join(scriptFolder,"RateMeData_FULL.p"), "wb")
+    pickler = pickle.Pickler(sfile)
     allData = []
     for i, (genderfolder, group) in enumerate(grouped):
         gender = genderfolder[0]
@@ -77,10 +79,14 @@ def saveFacialFeatures(combinedcsvpath):
             dataDict = {"gender": gender, "attractiveness": rating,
                         "impaths": usedImPaths, "numImages": len(ims),
                         "landmarkss": landmarkss, "facefeaturess": faceFeaturess,
-                        "meshs": meshs, "poses": poses, "facefeatures3D": shape_coeffs, "blendshape_coeffss": blendshape_coeffss
+                        # "meshs": meshs, can be regenerated from the coeffs below
+                        "poses": poses, "facefeatures3D": shape_coeffs, "blendshape_coeffss": blendshape_coeffss
                         }
             allData.append(dataDict)
+            pickler.dump(dataDict)
             print("%i / %i" % (i, len(grouped)))
+
+    sfile.close()
 
     allDataDF = pd.DataFrame(allData)
     allDataDF = allDataDF.sample(frac=1).reset_index(drop=True)
@@ -98,7 +104,6 @@ def dataFrameTo2D(df):
         impaths = row["impaths"]
         landmarkss = row["landmarkss"]
         facefeaturess = row["facefeaturess"]
-        meshs = row["meshs"]
         poses = row["poses"]
         blendshape_coeffss = row["blendshape_coeffss"]
 
@@ -106,21 +111,33 @@ def dataFrameTo2D(df):
             impath = impaths[i]
             landmarks = landmarkss[i]
             facefeatures = facefeaturess[i]
-            mesh = meshs[i]
             pose = poses[i]
             blendshape_coeffs = blendshape_coeffss[i]
 
             dataDict = {"gender": gender, "attractiveness": attractiveness,
                         "landmarks": landmarks, "facefeatures": facefeatures,
-                        "facefeatures3D": facefeatures3D, "mesh":mesh, "pose":pose, "blendshape_coeffs": blendshape_coeffs,
+                        "facefeatures3D": facefeatures3D, "pose":pose, "blendshape_coeffs": blendshape_coeffs,
                         "impath": impath}
             allData.append(dataDict)
     allDataDF = pd.DataFrame(allData)
     allDataDF = allDataDF.sample(frac=1).reset_index(drop=True)
     return allDataDF
 
+def load(filename):
+    with open(filename, "rb") as f:
+        unpickler = pickle._Unpickler(f)
+        while True:
+            try:
+                yield unpickler.load()
+            except EOFError:
+                break
+
 def loadRateMeFacialFeatures():
-    return pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
+    stuff = load(os.path.join(scriptFolder, "RateMeData_FULL.p"))
+    df = pd.DataFrame(stuff)
+    df = df.sample(frac=1).reset_index(drop=True)
+    return df
+    # return pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
 def loadRateMePCAGP(type="2d", gender="F"):
     return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
 def loadRateMe(type="2d", gender="F"):
@@ -147,8 +164,9 @@ if __name__ == "__main__":
     # df = saveFacialFeatures(combinedPath)
     df = loadRateMeFacialFeatures()
 
-    df2d = dataFrameTo2D(df)
-    trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9)
+
+    # df2d = dataFrameTo2D(df)
+    # trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
 
     moreaccurate = df[df["numImages"]>=3]
-    trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False)
+    trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)

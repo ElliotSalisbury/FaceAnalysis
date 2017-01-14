@@ -38,35 +38,48 @@ def readUS10kDemographics():
 def saveFacialFeatures(demographicsData):
     print("calculating face features")
     allData = []
-    for i, data in enumerate(demographicsData):
-        attractiveScore = float(data['Attractive'])
-        gender = GENDER_DICT[int(data['Gender'])]
-        if not np.isnan(attractiveScore):
-            impath = data['Filename']
-            im = cv2.imread(impath)
+    with open(os.path.join(scriptFolder, "US10kData_FULL.p"), "wb") as f:
+        for i, data in enumerate(demographicsData):
+            attractiveScore = float(data['Attractive'])
+            gender = GENDER_DICT[int(data['Gender'])]
+            if not np.isnan(attractiveScore):
+                impath = data['Filename']
+                im = cv2.imread(impath)
 
-            try:
-                landmarks, faceFeatures = getFaceFeatures(im)
-                mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
+                try:
+                    landmarks, faceFeatures = getFaceFeatures(im)
+                    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
 
-                dataDict = {"gender": gender, "attractiveness": attractiveScore,
-                            "landmarks": landmarks, "facefeatures": faceFeatures,
-                            "facefeatures3D": shape_coeffs, "mesh": mesh, "pose": pose, "blendshape_coeffs": blendshape_coeffs,
-                            "impath": impath
-                            }
+                    dataDict = {"gender": gender, "attractiveness": attractiveScore,
+                                "landmarks": landmarks, "facefeatures": faceFeatures,
+                                "facefeatures3D": shape_coeffs, "pose": pose, "blendshape_coeffs": blendshape_coeffs,
+                                "impath": impath
+                                }
 
-                allData.append(dataDict)
-                print("%i / %i"%(i,len(demographicsData)))
-            except:
-                continue
+                    allData.append(dataDict)
+                    pickle.dump(dataDict, f)
+                    print("%i / %i"%(i,len(demographicsData)))
+                except:
+                    continue
 
     allDataDF = pd.DataFrame(allData)
     allDataDF.to_pickle(os.path.join(scriptFolder,"US10kData.p"))
 
     return allDataDF
 
+def load(filename):
+    with open(filename, "rb") as f:
+        unpickler = pickle._Unpickler(f)
+        while True:
+            try:
+                yield unpickler.load()
+            except EOFError:
+                break
+
 def loadUS10kFacialFeatures():
-    return pd.read_pickle(os.path.join(scriptFolder, "US10kData.p"))
+    data = load(os.path.join(scriptFolder, "US10kData_FULL.p"))
+    df = pd.DataFrame(data)
+    return df
 def loadUS10kPCAGP(type="2d", gender="F"):
     return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
 def loadUS10k(type="2d", gender="F"):
@@ -89,5 +102,5 @@ if __name__ == "__main__":
     # df = saveFacialFeatures(demographicsData)
     df = loadUS10kFacialFeatures()
 
-    trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.8)
-    trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D", train_on_PCA=False)
+    trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.8, train_on_PCA=False, generate_PCA=True)
+    trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
