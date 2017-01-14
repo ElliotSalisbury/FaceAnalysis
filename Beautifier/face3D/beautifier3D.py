@@ -69,9 +69,9 @@ def beautifyIm3DFromPath(impath, pca, gp, trainX, trainY, method='KNN'):
     im = cv2.imread(impath)
     beautifyIm3D(im, pca, gp, trainX, trainY, method)
 
-def beautifyIm3D(im, pca, gp, trainX, trainY, method='KNN', exaggeration=1.5):
+def beautifyIm3D(im, pca, gp, trainX, trainY, method='KNN'):
     landmarks = getLandmarks(im)
-    beautifiedFace = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method, exaggeration=exaggeration)
+    beautifiedFace = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method)
     return beautifiedFace
 
 def rateFace3D(im, pca, gp):
