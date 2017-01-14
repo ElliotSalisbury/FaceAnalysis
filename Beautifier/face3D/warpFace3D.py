@@ -160,7 +160,7 @@ def renderFaceTo2D(im, mesh, pose, isomap):
 
     cv2.waitKey(-1)
 
-def drawMesh(im, mesh, pose, isomap):
+def drawMesh(im, mesh, pose):
     verts2d = projectMeshTo2D(mesh, pose, im)
     visibleFaceIndexs = getVisibleFacesIndexs(mesh, pose)
 

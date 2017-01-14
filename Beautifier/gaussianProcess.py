@@ -1,6 +1,5 @@
 import sklearn.decomposition
 import sklearn.gaussian_process
-import scipy.optimize
 import pickle
 import os
 import numpy as np
@@ -10,7 +9,7 @@ def fitPCA(trainX):
     pca.fit(trainX)
     return pca
 
-def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures", train_on_PCA=True):
+def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures", train_on_PCA=True, generate_PCA=True):
     #we need to train for both male and female
     grouped = df.groupby("gender")
 
@@ -24,38 +23,18 @@ def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures", train_o
         testX = np.array(group[featureset][trainSize:].as_matrix().tolist())
         testY = np.array(group["attractiveness"][trainSize:].as_matrix().tolist())
 
-        if train_on_PCA:
+        if generate_PCA:
             pca = fitPCA(trainX)
-            trainX = pca.transform(trainX)
-            testX = pca.transform(testX)
+            if train_on_PCA:
+                trainX = pca.transform(trainX)
+                testX = pca.transform(testX)
         else:
             pca = None
 
-        bounds = np.zeros((2, 2))
-        bounds[0, :] = [0.01, 0.1] #alpha bounds
-        bounds[1, :] = [1.0, 3.0] #constant bounds
+        svm = sklearn.svm.SVR()
+        svm.fit(trainX, trainY)
 
-        def gpTraining(params):
-            alpha = params[0]
-            constant = params[1]
+        score = svm.score(testX, testY)
+        print("svm = %0.10f" % (score))
 
-            kernel = sklearn.gaussian_process.kernels.ConstantKernel(constant,constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
-            gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
-
-            gp.fit(trainX, trainY)
-
-            score = gp.score(testX, testY)
-
-            print("gp (%0.4f, %0.4f) = %0.10f" % (alpha, constant, score))
-            return -score
-
-        gpParameters = scipy.optimize.minimize(gpTraining, [0.05, 1.5], method='SLSQP', bounds=bounds, options={"maxiter": 5, "eps": 0.001})
-        alpha, constant = gpParameters.x
-
-        kernel = sklearn.gaussian_process.kernels.ConstantKernel(constant,constant_value_bounds="fixed") * sklearn.gaussian_process.kernels.RBF(1.0, length_scale_bounds="fixed")
-        gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel, alpha=alpha, n_restarts_optimizer=10)
-        gp.fit(trainX, trainY)
-        score = gp.score(testX, testY)
-        print("gp (%0.4f, %0.4f) = %0.10f" % (alpha, constant, score))
-
-        pickle.dump((pca,gp), open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))
+        pickle.dump((pca,svm), open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))

@@ -1,13 +1,12 @@
 import numpy as np
 import cv2
-from US10k.US10k import loadUS10k
-from RateMe.RateMe import loadRateMe
-from Beautifier.beautifier import findBestFeaturesKNN, findBestFeaturesOptimisation, findBestFeaturesOptimisation2, findBestFeaturesOptimisation3
+from Beautifier.beautifier import findBestFeaturesKNN
 from Beautifier.faceFeatures import getLandmarks
 from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D, getMeshFromLandmarks, model, blendshapes
 from Beautifier.face3D.warpFace3D import warpFace3D
 import eos
 import os
+import scipy
 
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
 
@@ -16,56 +15,55 @@ def findBestFeaturesFudge(features3D):
     features3D[3] -= 1
     return features3D
 
-def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN', exaggeration=1.5):
+def findBestFeaturesOptimisation(features3D, gp):
+    print("finding optimal face features optimisation")
+
+    def GPCostFunction(features):
+        y_pred = gp.predict([features])
+        return -y_pred
+
+    bounds = np.zeros((features3D.shape[0],2))
+    bounds[:, 0] = -2
+    bounds[:, 1] = 2
+
+    optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, features3D, bounds=bounds, method='SLSQP', options={"maxiter": 5, "eps": 0.001})
+    return optimalNewFaceFeatures.x
+
+def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN'):
     mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
     features3D = np.array(shape_coeffs)
 
     if method=='KNN':
         newFaceFeatures = findBestFeaturesKNN(features3D, pca, gp, trainX, trainY)
     elif method == 'GP':
-        newFaceFeatures = findBestFeaturesOptimisation(features3D, pca, gp)
-    elif method == 'GP2':
-        newFaceFeatures = findBestFeaturesOptimisation2(features3D, pca, gp)
-    elif method == 'GP3':
-        newFaceFeatures = findBestFeaturesOptimisation3(features3D, pca, gp)
+        newFaceFeatures = findBestFeaturesOptimisation(features3D, gp)
     elif method == 'fudge it':
         newFaceFeatures = findBestFeaturesFudge(features3D)
 
-    delta = newFaceFeatures - features3D
-    newFaceFeatures = features3D + exaggeration*delta
-    # newFaceFeatures = shape_coeffs
-    # newFaceFeatures[0] -= 1.0
     newMesh = eos.morphablemodel.draw_sample(model, blendshapes, newFaceFeatures, blendshape_coeffs,[])#newFaceFeatures[63:], [])
 
     warpedIm = warpFace3D(im, mesh, pose, newMesh)
     return warpedIm
 
-def compareMethods(im, outpath, us10kpca, ratemepca, us10kgp, ratemegp, us10kTrainX, us10kTrainY, ratemeTrainX, ratemeTrainY):
+def compareMethods(im, datasets):
     landmarks = getLandmarks(im)
 
-    # US10kKNN = beautifyFace3D(im, landmarks, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='KNN')
-    # US10kGP = beautifyFace3D(im, landmarks, us10kpca, us10kgp, us10kTrainX, us10kTrainY, method='GP3')
-    RateMeKNN = beautifyFace3D(im, landmarks, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method='KNN')
-    RateMeGP = beautifyFace3D(im, landmarks, ratemepca, ratemegp, ratemeTrainX, ratemeTrainY, method='GP2')
-
-    displayIm = np.zeros((im.shape[0] * 2, im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
+    displayIm = np.zeros((im.shape[0] * len(datasets), im.shape[1] * 4, im.shape[2]), dtype=np.uint8)
     displayIm[:im.shape[0], :im.shape[1], :] = im.copy()
-    # displayIm[:im.shape[0], im.shape[1]:im.shape[1] * 2, :] = US10kKNN
-    # displayIm[:im.shape[0], im.shape[1] * 2:im.shape[1] * 3, :] = US10kGP
-    displayIm[im.shape[0]:, im.shape[1]:im.shape[1] * 2, :] = RateMeKNN
-    displayIm[im.shape[0]:, im.shape[1] * 2:im.shape[1] * 3, :] = RateMeGP
+    for i, dataset in enumerate(datasets):
+        trainX, trainY, pca, gp = dataset
 
-    # diff = np.abs(np.float32(im) - np.float32(US10kGP))
-    # diff = (diff / np.max(diff)) * 255
-    # displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
+        KNN = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN')
+        GP = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='GP')
 
-    diff = np.abs(np.float32(im) - np.float32(RateMeGP))
-    diff = (diff / np.max(diff)) * 255
-    displayIm[im.shape[0]:, im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
+        displayIm[im.shape[0] * i:im.shape[0] * (i + 1), im.shape[1]:im.shape[1] * 2, :] = KNN
+        displayIm[im.shape[0] * i:im.shape[0] * (i + 1), im.shape[1] * 2:im.shape[1] * 3, :] = GP
 
-    cv2.imshow("face", displayIm)
-    cv2.waitKey(1)
-    cv2.imwrite(outpath, displayIm)
+        diff = np.abs(np.float32(im) - np.float32(GP))
+        diff = (diff / np.max(diff)) * 255
+        displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
+
+    return displayIm
 
 def beautifyIm3DFromPath(impath, pca, gp, trainX, trainY, method='KNN'):
     im = cv2.imread(impath)
@@ -84,27 +82,27 @@ def rateFace3D(im, pca, gp):
 
 if __name__ == "__main__":
     import glob
-    from Beautifier.face3D.faceFeatures3D import ensureImageLessThanMax
-    from Beautifier.beautifier import beautifyIm
+    from US10k.US10k import loadUS10k
+    from RateMe.RateMe import loadRateMe
 
-    GENDER = "F"
+    GENDER = "M"
 
-    US10k_3D = loadRateMe(type="3d", gender=GENDER)
-    trainX, trainY, pca, gp = US10k_3D
+    dstFolder = "./results3M/"
+    us10kdf = loadUS10k(type="3d", gender=GENDER)
 
-    im = cv2.imread("C:\\Users\\ellio\\Desktop\\lena.bmp")
-    im = ensureImageLessThanMax(im, maxsize=1024)
+    datasets = [us10kdf]
 
-    rating = rateFace3D(im, pca, gp)
-    print("Rating: %f"%rating)
-    better = beautifyIm3D(im, pca, gp, trainX, trainY, method='KNN', exaggeration=20)
+    print("begin beautification")
+    import glob
 
-    cv2.imshow("b", better)
-    cv2.imshow("o", im)
-    cv2.waitKey(-1)
+    for i, impath in enumerate(glob.glob("E:\\Facedata\\10k US Adult Faces Database\\Publication Friendly 49-Face Database\\49 Face Images\\*.jpg")):
+        im = cv2.imread(impath)
+        filename = os.path.basename(impath)
+        comparedIm = compareMethods(im, datasets)
 
-    # print("begin beautification")
-    #
-    # for impath in glob.glob("E:\\Facedata\\10k US Adult Faces Database\\Publication Friendly 49-Face Database\\49 Face Images\\*.jpg"):
-    #     im = cv2.imread(impath)
-    #     compareMethods(im, impath+".beautified.jpg", us10kpca, ratemepca, us10kgp, ratemegp, us10kTrainX, us10kTrainY,ratemeTrainX, ratemeTrainY)
+        cv2.imshow("face", comparedIm)
+        cv2.waitKey(1)
+        cv2.imwrite(os.path.join(dstFolder, filename), comparedIm)
+
+        cv2.imwrite(os.path.join(dstFolder, "compare/%i_1.jpg" % i), im)
+        cv2.imwrite(os.path.join(dstFolder, "compare/%i_2.jpg" % i), comparedIm[im.shape[0] * 0:im.shape[0] * (0 + 1), im.shape[1] * 2:im.shape[1] * 3, :])

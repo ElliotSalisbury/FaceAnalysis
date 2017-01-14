@@ -3,9 +3,6 @@ import numpy as np
 import os
 import cv2
 from Beautifier.faceFeatures import getLandmarks
-import json
-from Beautifier.face3D.warpFace3D import warpFace3D, project, renderFaceTo2D, drawMesh
-import math
 
 EOS_SHARE_PATH = os.environ['EOS_DATA_PATH']
 
@@ -72,7 +69,7 @@ def createTextureMap(mesh, pose, im):
     return eos.render.extract_texture(mesh, pose, im)
 
 
-def exportMeshToJSON(mesh, outpath):
+def exportMeshToJSON(mesh):
     verts = np.array(mesh.vertices)[:,0:3].flatten().tolist()
 
     uvs = np.array(mesh.texcoords)
@@ -96,8 +93,7 @@ def exportMeshToJSON(mesh, outpath):
     outdata["uvs"] = [uvs]
     outdata["faces"] = faces
 
-    with open(outpath, 'w') as outfile:
-        json.dump(outdata, outfile, indent=4, sort_keys=True)
+    return outdata
 
 def ensureImageLessThanMax(im, maxsize=512):
     height, width, depth = im.shape
@@ -113,44 +109,3 @@ def ensureImageLessThanMax(im, maxsize=512):
             width = int(width * ratio)
         im = cv2.resize(im,(width,height))
     return im
-
-def main():
-    # im = cv2.imread("C:\\Users\\Elliot\\Desktop\\fb\\MyFaces\\8.0\\0151.jpg")
-    im = cv2.imread("C:\\Users\\ellio\\Desktop\\test.png")[:,:,:3]
-    im = ensureImageLessThanMax(im, 1024)
-
-    landmarks = getLandmarks(im)
-    if landmarks is None:
-        return None
-
-    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
-    isomap = createTextureMap(mesh, pose, im)
-    cv2.imwrite("./webview/example.jpg", isomap)
-    # renderFaceTo2D(im,mesh,pose,isomap)
-
-    newim = np.zeros((im.shape[0] * 5, im.shape[1] * 5, im.shape[2]), np.uint8)
-    count = 0
-    for i in np.linspace(-3, 3, 5):
-        for j in np.linspace(-3, 3, 5):
-            new_coeffs = list(shape_coeffs)
-            new_coeffs[2] += i
-            new_coeffs[3] += j
-
-            newMesh = eos.morphablemodel.draw_sample(model, blendshapes, new_coeffs, blendshape_coeffs, [])
-
-            warpedIm = warpFace3D(im, mesh, pose, newMesh)
-            cv2.imshow("warped", warpedIm)
-            cv2.imwrite("./webview/example_%i.jpg"%count, warpedIm)
-            cv2.waitKey(1)
-
-            x = count % 5
-            y = int(count / 5)
-            newim[im.shape[0]*y:im.shape[0]*(y+1),im.shape[1]*x:im.shape[1]*(x+1),:]=warpedIm
-
-
-            exportMeshToJSON(newMesh, "./webview/example_%i.json"%count)
-            count += 1
-    cv2.imwrite("all.jpg", newim)
-
-if __name__ == "__main__":
-    main()

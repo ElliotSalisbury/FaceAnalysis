@@ -45,3 +45,9 @@ def warpFace(im, oldLandmarks, newLandmarks, justFace=False, output_shape=None):
     warped = warp(im, tform, output_shape=output_shape)
     warped = skimage.img_as_ubyte(warped)
     return warped
+
+def drawLandmarks(im, landmarks):
+    newIm = im.copy()
+    for landmark in landmarks:
+        cv2.circle(newIm, tuple(landmark), 2, (0,255,0), -1)
+    return newIm
