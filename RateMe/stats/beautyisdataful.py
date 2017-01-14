@@ -3,6 +3,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import collections
+import cv2
+from Beautifier.faceFeatures import getLandmarks
+from Beautifier.warpFace import drawLandmarks
+from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks
+from Beautifier.face3D.warpFace3D import drawMesh
 
 genderName = {"M":"Male","F":"Female"}
 
@@ -209,6 +214,15 @@ def rankSubmissions(df):
         plt.savefig(title)
         plt.clf()
 
+def imagesOfFitting():
+    im = cv2.imread("C:\\Users\\ellio\\Desktop\\lena.bmp")
+    landmarks = getLandmarks(im)
+
+    cv2.imwrite("Landmarks.jpg", drawLandmarks(im, landmarks))
+
+    mesh, pose, _, _ = getMeshFromLandmarks(landmarks, im)
+    cv2.imwrite("Mesh.jpg", drawMesh(im, mesh, pose))
+
 if __name__ == "__main__":
     rateMeFolder = "E:\\Facedata\\RateMe"
     combinedPath = os.path.join(rateMeFolder, "combined.csv")
@@ -220,6 +234,5 @@ if __name__ == "__main__":
     submissionsdf = submissionsdf.loc[submissionsdf['Submission Age'] >= 18]
     submissionsdf = submissionsdf.loc[submissionsdf['Submission Age'] < 50]
 
-    histOfAttractiveness(submissionsdf)
-    rankSubmissions(submissionsdf)
+    imagesOfFitting()
 
