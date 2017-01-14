@@ -215,8 +215,6 @@ def beautifyIm(im, pca, gp, trainX, trainY, method='KNN'):
 
 def rateFace(im, pca, gp):
     landmarks, faceFeatures = getFaceFeatures(im)
-    if pca is not None:
-        faceFeatures = pca.transform([faceFeatures])
     return gp.predict(faceFeatures)[0]
 
 if __name__ == "__main__":
