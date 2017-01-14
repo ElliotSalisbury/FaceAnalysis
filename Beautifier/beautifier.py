@@ -200,7 +200,7 @@ def compareMethods(im, datasets):
 
         diff = np.abs(np.float32(im) - np.float32(GP))
         diff = (diff / np.max(diff)) * 255
-        displayIm[:im.shape[0], im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
+        displayIm[im.shape[0]*i:im.shape[0]*(i+1), im.shape[1] * 3:im.shape[1] * 4, :] = np.uint8(diff)
 
     return displayIm
 
@@ -222,12 +222,12 @@ if __name__ == "__main__":
     from RateMe.RateMe import loadRateMe
     import glob
 
-    GENDER = "F"
+    GENDER = "M"
 
-    dstFolder = "./results2F/"
+    dstFolder = "./results2M/"
     us10kdf = loadUS10k(gender=GENDER)
 
-    datasets = [us10kdf]
+    datasets = [loadUS10k(gender=GENDER), loadRateMe(gender=GENDER)]
 
     print("begin beautification")
     for i, impath in enumerate(glob.glob("E:\\Facedata\\10k US Adult Faces Database\\Publication Friendly 49-Face Database\\49 Face Images\\*.jpg")):
@@ -239,5 +239,6 @@ if __name__ == "__main__":
         cv2.waitKey(1)
         cv2.imwrite(os.path.join(dstFolder,filename), comparedIm)
 
+        compareIndex = 1
         cv2.imwrite(os.path.join(dstFolder,"compare/%i_1.jpg"%i), im)
-        cv2.imwrite(os.path.join(dstFolder,"compare/%i_2.jpg"%i), comparedIm[im.shape[0] * 0:im.shape[0] * (0 + 1), im.shape[1] * 2:im.shape[1] * 3, :])
+        cv2.imwrite(os.path.join(dstFolder,"compare/%i_2.jpg"%i), comparedIm[im.shape[0] * compareIndex:im.shape[0] * (compareIndex + 1), im.shape[1] * 2:im.shape[1] * 3, :])
