@@ -140,7 +140,10 @@ def loadRateMeFacialFeatures():
     # return pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
 def loadRateMePCAGP(type="2d", gender="F"):
     return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
-def loadRateMe(type="2d", gender="F"):
+def loadRateMe(type="2d", gender="F", server=False):
+    if server:
+        return pickle.dump(open(os.path.join(scriptFolder, "server/%s_%s.p"%(type,gender)), "rb"))
+
     df = loadRateMeFacialFeatures()
     if type=="2d":
         df = dataFrameTo2D(df)
@@ -156,6 +159,12 @@ def loadRateMe(type="2d", gender="F"):
     pca, gp = loadRateMePCAGP(type=type, gender=gender)
 
     return trainX, trainY, pca, gp
+
+def saveServerOptimised():
+    for type in ["2d", "3d"]:
+        for gender in ["F", "M"]:
+            with open(os.path.join(scriptFolder, "server/%s_%s.p"%(type,gender)), "wb") as file:
+                pickle.dump(loadRateMe(type=type, gender=gender), file)
 
 if __name__ == "__main__":
     # rateMeFolder = "E:\\Facedata\\RateMe"
