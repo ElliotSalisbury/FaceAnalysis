@@ -142,7 +142,7 @@ def loadRateMePCAGP(type="2d", gender="F"):
     return pickle.load(open(os.path.join(scriptFolder, "%s/GP_%s.p"%(type,gender)), "rb"))
 def loadRateMe(type="2d", gender="F", server=False):
     if server:
-        return pickle.dump(open(os.path.join(scriptFolder, "server/%s_%s.p"%(type,gender)), "rb"))
+        return pickle.load(open(os.path.join(scriptFolder, "server/%s_%s.p"%(type,gender)), "rb"))
 
     df = loadRateMeFacialFeatures()
     if type=="2d":
