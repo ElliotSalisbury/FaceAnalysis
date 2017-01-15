@@ -165,8 +165,8 @@ if __name__ == "__main__":
     df = loadRateMeFacialFeatures()
 
 
-    # df2d = dataFrameTo2D(df)
-    # trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
+    df2d = dataFrameTo2D(df)
+    trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
 
-    moreaccurate = df[df["numImages"]>=3]
+    moreaccurate = df[df["numImages"]>=5]
     trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
