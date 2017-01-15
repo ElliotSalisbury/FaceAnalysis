@@ -35,6 +35,9 @@ def getMeshFromMultiLandmarks(landmarkss, ims, num_iterations=5, num_shape_coeff
         image_widths.append(im.shape[1])
         image_heights.append(im.shape[0])
 
+    return getMeshFromMultiLandmarks_IWH(landmarkss, image_widths, image_heights, num_iterations=num_iterations, num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
+
+def getMeshFromMultiLandmarks_IWH(landmarkss, image_widths, image_heights, num_iterations=5, num_shape_coefficients_to_fit=-1):
     (meshs, poses, shape_coeffs, blendshape_coeffss) = eos.fitting.fit_shape_and_pose(model, blendshapes,
                                                                                    landmarkss, landmark_ids,
                                                                                    landmark_mapper,
