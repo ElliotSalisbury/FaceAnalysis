@@ -7,6 +7,7 @@ from Beautifier.gaussianProcess import trainGP
 from Beautifier.faceFeatures import getFaceFeatures
 from Beautifier.face3D.faceFeatures3D import getMeshFromMultiLandmarks
 import numpy as np
+import math
 
 MAX_IM_SIZE = 512
 
@@ -38,16 +39,29 @@ def saveFacialFeatures(combinedcsvpath):
     filtered = df.loc[df['Submission Age'] >= 18]
     filtered = filtered.loc[filtered['Submission Age'] < 50]
 
-    grouped = filtered.groupby(['Submission Gender', "Folder"])
+    grouped = filtered.groupby(['Submission Id', "Submission Created UTC", "Folder", "Submission Age", "Submission Gender"])
 
     sfile = open(os.path.join(scriptFolder,"RateMeData_FULL.p"), "wb")
     pickler = pickle.Pickler(sfile)
     allData = []
-    for i, (genderfolder, group) in enumerate(grouped):
-        gender = genderfolder[0]
-        folder = genderfolder[1]
+    for i, (uniques, group) in enumerate(grouped):
+        submissionId = uniques[0]
+        submissionCreatedUTC = uniques[1]
+        folder = uniques[2]
+        submissionAge = uniques[3]
+        submissionGender = uniques[4]
+
         ratings = np.array(group["Rating"].as_matrix().tolist())
-        rating = np.mean(reject_outliers(ratings))
+        ratingDecimal = np.array(group["Decimal"].as_matrix().tolist())
+        ratingAuthor = np.array(group["Rating Author"].as_matrix().tolist())
+        ratingPostedUTC = np.array(group["Rating Posted UTC"].as_matrix().tolist())
+        ratingText = np.array(group["Rating Text"].as_matrix().tolist())
+
+        comments = [(ratingAuthor[k], ratingPostedUTC[k], ratings[k], ratingDecimal[k], ratingText[k]) for k in range(len(ratings))]
+
+        cleanedRatings = [ratings[k] for k in range(len(ratings)) if not math.isnan(ratings[k])]
+        cleanedRatings = reject_outliers(np.array(cleanedRatings))
+        attractiveness = np.mean(cleanedRatings)
 
         #get the image files:
         types = ('*.jpg', '*.png', '*.bmp')
@@ -59,6 +73,9 @@ def saveFacialFeatures(combinedcsvpath):
         ims = []
         landmarkss = []
         faceFeaturess = []
+
+        numBodyShots = 0
+        numBuddyShots = 0
         for impath in impaths:
             im = cv2.imread(impath)
             # im = ensureImageLessThanMax(im)
@@ -70,17 +87,25 @@ def saveFacialFeatures(combinedcsvpath):
                 ims.append(im)
                 landmarkss.append(landmarks)
                 faceFeaturess.append(faceFeatures)
-            except:
+            except Exception as e:
+                if "No face" in str(e):
+                    numBodyShots += 1
+                elif "Multiple faces" in str(e):
+                    numBuddyShots += 1
+
                 continue
 
         if len(ims) > 0:
             meshs, poses, shape_coeffs, blendshape_coeffss = getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=10)
 
-            dataDict = {"gender": gender, "attractiveness": rating,
-                        "impaths": usedImPaths, "numImages": len(ims),
+            dataDict = {"submissionId":submissionId, "submissionCreatedUTC":submissionCreatedUTC, "gender": submissionGender, "age": submissionAge,
+                        "comments": comments,
+                        "attractiveness": attractiveness,
+                        "numUsableImages": len(ims), "numSubmittedImages": len(impaths), "numBodyShots":numBodyShots, "numBuddyShots":numBuddyShots,
+                        "impaths": usedImPaths,
                         "landmarkss": landmarkss, "facefeaturess": faceFeaturess,
                         # "meshs": meshs, can be regenerated from the coeffs below
-                        "poses": poses, "facefeatures3D": shape_coeffs, "blendshape_coeffss": blendshape_coeffss
+                        "poses": poses, "facefeatures3D": shape_coeffs, "blendshape_coeffss": blendshape_coeffss,
                         }
             allData.append(dataDict)
             pickler.dump(dataDict)
@@ -167,11 +192,11 @@ def saveServerOptimised():
                 pickle.dump(loadRateMe(type=type, gender=gender), file)
 
 if __name__ == "__main__":
-    # rateMeFolder = "E:\\Facedata\\RateMe"
-    # combinedPath = os.path.join(rateMeFolder, "combined.csv")
-    #
-    # df = saveFacialFeatures(combinedPath)
-    df = loadRateMeFacialFeatures()
+    rateMeFolder = "E:\\Facedata\\RateMe"
+    combinedPath = os.path.join(rateMeFolder, "combined.csv")
+
+    df = saveFacialFeatures(combinedPath)
+    # df = loadRateMeFacialFeatures()
 
 
     df2d = dataFrameTo2D(df)
