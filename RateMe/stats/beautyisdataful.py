@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import collections
 import cv2
 from Beautifier.faceFeatures import getLandmarks
@@ -9,16 +10,24 @@ from Beautifier.warpFace import drawLandmarks
 from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks
 from Beautifier.face3D.warpFace3D import drawMesh
 
+# titleFont = fm.FontProperties(fname="./fonts/Oswald-Regular.ttf")
+# titleFont = fm.FontProperties(fname="./fonts/Oswald-Light.ttf")
+titleFont = fm.FontProperties(fname="./fonts/Pacifico-Regular.ttf")
+
 genderName = {"M":"Male","F":"Female"}
+genderColor = {"M":"#2196f3","F":"#862197"}
+
 
 def histOfAttractiveness(df):
+    df = df[np.isfinite(df['Rating'])]
+
     gendered = df.groupby(['Submission Gender'])
     for gender, group in gendered:
 
         title = genderName[gender] + " Ratings"
 
-        ax = group["Rating"].hist(bins=np.arange(1,12)-0.5)
-        ax.set_title(title)
+        ax = group["Rating"].hist(bins=np.arange(1,12)-0.5, color=genderColor[gender], grid=False)
+        ax.set_title(title, fontproperties=titleFont)
         ax.set_xticks(range(1,11))
         ax.set_xlim(0.5,10.5)
 
@@ -35,10 +44,10 @@ def histOfAttractiveness(df):
                 submissionMean.append(int(row["Rating"]))
             ratingsPerSubmission[submission] = submissionMean
         ratings = [np.mean(reject_outliers(np.array(ratingsPerSubmission[submission]))) for submission in ratingsPerSubmission.keys()]
-        plt.hist(ratings, bins=np.arange(1, 12) - 0.5)
+        plt.hist(ratings, bins=np.arange(1, 12) - 0.5, color=genderColor[gender])
 
         title = genderName[gender] + " Attractiveness"
-        plt.title(title)
+        plt.title(title, fontproperties=titleFont)
         plt.xticks(range(1, 11))
         plt.xlim(0.5, 10.5)
 
@@ -47,9 +56,9 @@ def histOfAttractiveness(df):
 
         ratingsNoOutliers = [reject_outliers(np.array(ratingsPerSubmission[submission])) for submission in ratingsPerSubmission.keys()]
         ratingsNoOutliers = [item for sublist in ratingsNoOutliers for item in sublist]
-        plt.hist(ratingsNoOutliers, bins=np.arange(1, 12) - 0.5)
+        plt.hist(ratingsNoOutliers, bins=np.arange(1, 12) - 0.5, color=genderColor[gender])
         title = genderName[gender] + " Ratings without outliers"
-        plt.title(title)
+        plt.title(title, fontproperties=titleFont)
         plt.xticks(range(1, 11))
         plt.xlim(0.5, 10.5)
         plt.savefig(title)
@@ -59,10 +68,10 @@ def histOfAttractiveness(df):
         width = 1
         hw = width / 2.0
         numRatings = [len(ratingsPerSubmission[submission]) for submission in ratingsPerSubmission.keys()]
-        plt.hist(numRatings, bins=np.arange(1, 50,width) - hw)
+        plt.hist(numRatings, bins=np.arange(1, 50,width) - hw, color=genderColor[gender])
 
         title = genderName[gender] + " Submissions Number of Ratings"
-        plt.title(title)
+        plt.title(title, fontproperties=titleFont)
         plt.xticks(range(1, 51,width*2))
         plt.xlim(hw, 50 + hw)
 
@@ -97,7 +106,9 @@ def topRatingAuthors(df):
     plt.clf()
 
 def ratingsOverAge(df):
+    df = df[np.isfinite(df['Rating'])]
     df = df.loc[df['Submission Age'] <= 30]
+
     gendered = df.groupby(['Submission Gender'])
     for gender, group in gendered:
         ageRatings = collections.defaultdict(list)
@@ -107,7 +118,7 @@ def ratingsOverAge(df):
             submissionMean = []
             for index, row in group.iterrows():
                 submissionMean.append(int(row["Rating"]))
-            ageRatings[int(row['Submission Age'])].append(np.mean(submissionMean))
+            ageRatings[int(row['Submission Age'])].append(np.mean(reject_outliers(np.array(submissionMean))))
 
         X = []
         Y = []
@@ -118,14 +129,16 @@ def ratingsOverAge(df):
             std.append(np.std(ageRatings[age]))
 
         title = genderName[gender] + " Attractiveness Over Age"
-        plt.errorbar(X, Y, yerr=std, fmt='-')
+        plt.errorbar(X, Y, yerr=std, fmt='-', color=genderColor[gender])
         # plt.plot(X,Y)
-        plt.title(title)
+        plt.title(title, fontproperties=titleFont)
         plt.ylim(0,10)
         plt.savefig(title)
         plt.clf()
 
 def numRatersWhoSubmitted(df):
+    df = df[np.isfinite(df['Rating'])]
+
     submittersCount = collections.defaultdict(set)
     ratersCount = collections.defaultdict(set)
     ratingsByAuthor = collections.defaultdict(list)
@@ -148,7 +161,7 @@ def numRatersWhoSubmitted(df):
     #HIST of the submission count
     plt.hist(numRepeatSubmissions, bins=np.arange(1,np.max(numRepeatSubmissions)+1)-0.5)
     title = "Number of Submissions Per User"
-    plt.title(title)
+    plt.title(title, fontproperties=titleFont)
     plt.xticks(range(1,np.max(numRepeatSubmissions)+1))
     # plt.ylim(0,200)
     plt.xlim(0.5, np.max(numRepeatSubmissions)+0.5)
@@ -183,6 +196,8 @@ def reject_outliers(data, m = 2.):
 
 
 def rankSubmissions(df):
+    df = df[np.isfinite(df['Rating'])]
+
     gendered = df.groupby(['Submission Gender'])
     for gender, group in gendered:
         ratingsPerSubmission = {}
@@ -206,10 +221,10 @@ def rankSubmissions(df):
 
 
         title = genderName[gender] + " Submissions Sorted by Average Rating"
-        plt.plot(X, Ym)
+        plt.plot(X, Ym, color=genderColor[gender])
         plt.plot(X, Ym + Yerr, 'r-')
         plt.plot(X, Ym - Yerr, 'r-')
-        plt.title(title)
+        plt.title(title, fontproperties=titleFont)
         plt.ylim(0, 10)
         plt.savefig(title)
         plt.clf()
@@ -234,5 +249,11 @@ if __name__ == "__main__":
     submissionsdf = submissionsdf.loc[submissionsdf['Submission Age'] >= 18]
     submissionsdf = submissionsdf.loc[submissionsdf['Submission Age'] < 50]
 
-    imagesOfFitting()
+    df = submissionsdf
 
+    histOfAttractiveness(df)
+    topRatingAuthors(df)
+    ratingsOverAge(df)
+    numRatersWhoSubmitted(df)
+    rankSubmissions(df)
+    # imagesOfFitting()
