@@ -1,76 +1,19 @@
 import os
 import csv
-import pandas as pd
 import cv2
 import numpy as np
-from RateMe import ensureImageLessThanMax
-from faceFeatures import getFaceFeatures
-from beautifier import findBestFeaturesKNN,calculateLandmarksfromFeatures
-from warpFace import warpFace
-from face3D.faceFeatures3D import createTextureMap, getMeshFromLandmarks, exportMeshToJSON, model, blendshapes
+from RateMe.RateMe import ensureImageLessThanMax, loadRateMeFacialFeatures
+from Beautifier.faceFeatures import getFaceFeatures
+from Beautifier.beautifier import findBestFeaturesKNN,calculateLandmarksfromFeatures
+from Beautifier.warpFace import warpFace
+from Beautifier.face3D.faceFeatures3D import createTextureMap, getMeshFromMultiLandmarks_IWH, exportMeshToJSON, model, blendshapes
+from Beautifier.face3D.warpFace3D import drawMesh
 import eos
+import json
 import random
-from multiprocessing import Process
-
-RateMeFolder = "E:\\Facedata\\RateMe"
-combinedPath = os.path.join(RateMeFolder, "combined.csv")
-
-def combineRatingCsvs():
-    submissionFolders = [x[0] for x in os.walk(RateMeFolder)]
-
-    #compile into single file
-    with open(combinedPath, 'w', newline='') as wf:
-        writer = csv.writer(wf)
-        writer.writerow(("Folder", "Submission Title", "Submission Age", "Submission Gender", "Submission Author", "Rating Author","Rating", "Decimal", "Rating Text"))
-
-        for folder in submissionFolders:
-            ratingsPath = os.path.join(folder, "ratings.csv")
-
-            if not os.path.exists(ratingsPath):
-                continue
-
-            with open(ratingsPath, 'r') as rf:
-                reader = csv.reader(rf)
-
-                for i, row in enumerate(reader):
-                    if i==0:
-                        continue
-                    writer.writerow([folder,] + row)
-
-# #load the data, and drop the rating text we wont need it
-# df = pd.read_csv(combinedPath)
-# df.drop('Rating Text', 1)
-#
-# meanRatings = df["Rating"].groupby(df["Submission Gender"]).mean()
-# print(meanRatings)
-
-def findBestFeaturesKNN(myFeatures, trainX, trainY, beautyAim):
-    print("finding optimal face features KNN")
-    # calculate nearest beauty weighted distance to neighbours
-    weightedDistances = np.zeros((len(trainX), 1))
-    for i in range(len(trainX)):
-        neighborFeatures = trainX[i]
-        neighborBeauty = 10 - abs(trainY[i]-beautyAim)
-        distanceToNeighbor = np.linalg.norm(myFeatures - neighborFeatures)
-
-        weightedDistance = neighborBeauty / distanceToNeighbor
-        weightedDistances[i] = weightedDistance
-
-    nearestWeightsIndexs = np.argsort(weightedDistances, 0)[::-1]
-
-    # find the optimal K size for nearest neighbor
-    K = 5
-    kNewFeatures = np.zeros((K, len(myFeatures)))
-    for k in range(K):
-        indexs = nearestWeightsIndexs[:k + 1]
-        weights = weightedDistances[indexs]
-        features = trainX[indexs]
-        kNewFeatures[k, :] = np.sum((weights * features), axis=0) / np.sum(weights)
-
-    # y_pred = gp.predict(kNewFeatures)
-    # bestK = np.argmax(y_pred, 0)
-
-    return kNewFeatures[K-1]
+import pickle
+import msgpack
+import dlib
 
 def averageFaces(df, outpath):
     startIm = cv2.imread("E:\\Facedata\\10k US Adult Faces Database\\Face Images\\Aaron_Nickell_11_oval.jpg")
@@ -142,6 +85,9 @@ def averageFaces(df, outpath):
 
 def averageFaces3D(df, outpath):
     numFaces = 5
+
+    # df = df[df["numImages"] >= 2]
+
     minAttractiveness = df['attractiveness'].min()
     maxAttractiveness = df['attractiveness'].max()
     attractiveRange = maxAttractiveness - minAttractiveness
@@ -158,59 +104,172 @@ def averageFaces3D(df, outpath):
             if hotgroup.size == 0:
                 continue
 
-            hotImpaths = np.array(hotgroup["impath"].as_matrix().tolist())
-            hotlandmarks = np.array(hotgroup["landmarks"].as_matrix().tolist())
             hotFacefeatures = np.array(hotgroup["facefeatures3D"].as_matrix().tolist())
-            hotnessScore = np.array(hotgroup["attractiveness"].as_matrix().tolist())
+            avgHotFaceFeatures = hotFacefeatures.mean(axis=0)
 
-            Process(target=exportAverageFace, args=(outpath, gender, hotness, hotFacefeatures, hotImpaths, hotlandmarks)).start()
+            title = "averageFaces_%s_%0.2f_%d" % (gender, hotness, hotFacefeatures.shape[0])
+            # title = "averageFaces_%s_%d" % (gender, j)
+            hotMesh = eos.morphablemodel.draw_sample(model, blendshapes, avgHotFaceFeatures, [], [])
 
-def exportAverageFace(outpath, gender, hotness, hotFacefeatures, hotImpaths, hotlandmarks):
-    avgHotFaceFeatures = hotFacefeatures.mean(axis=0)
-    # avgHotFaceFeatures = np.median(hotFacefeatures, axis=0)
+            with open(os.path.join(outpath, title+".msg"), 'wb') as outfile:
+                meshjson = exportMeshToJSON(hotMesh)
+                msgpack.dump(meshjson,outfile)
+                # json.dump(meshjson, outfile, indent=4, sort_keys=True)
 
-    hotShapeCoeffs = avgHotFaceFeatures[0:63]
-    hotExpressionCoeffs = avgHotFaceFeatures[63:]
-    hotMesh = eos.morphablemodel.draw_sample(model, blendshapes, hotShapeCoeffs, hotExpressionCoeffs, [])
 
-    count = 0
-    avgFace = None
+            #create the texture from the faces
+            NUMSAMPLES = min(len(hotFacefeatures), 300)
+            randomSampleIndexs = random.sample(range(len(hotFacefeatures)), NUMSAMPLES)
 
-    NUMSAMPLES = min(len(hotImpaths), 300)
-    randomSampleIndexs = random.sample(range(len(hotImpaths)), NUMSAMPLES)
+            hotAttractiveness = np.array(hotgroup["attractiveness"].as_matrix().tolist())
+            hotImpathss = np.array(hotgroup["impaths"].as_matrix().tolist())
+            hotLandmarkss = np.array(hotgroup["landmarkss"].as_matrix().tolist())
+            hotPosess = np.array(hotgroup["poses"].as_matrix().tolist())
+            hotBlendshape_coeffss = np.array(hotgroup["blendshape_coeffss"].as_matrix().tolist())
+            avgFace=None
 
-    for k in randomSampleIndexs:
-        impath = hotImpaths[k]
-        landmarks = hotlandmarks[k]
+            # allim_ws = []
+            # allim_hs = []
+            # alllandmarks = []
+            # for k in randomSampleIndexs:
+            #     impaths = hotImpathss[k]
+            #     randomImIndexs = random.sample(range(len(impaths)), 1)
+            #
+            #     for index in randomImIndexs:
+            #         im = cv2.imread(impaths[index])
+            #         allim_ws.append(im.shape[1])
+            #         allim_hs.append(im.shape[0])
+            #     landmarks = [hotLandmarkss[k][index] for index in randomImIndexs]
+            #     alllandmarks.extend(landmarks)
+            #
+            # randomImIndexs = random.sample(range(len(allim_ws)), min(len(allim_ws), 50))
+            # allim_ws = [allim_ws[index] for index in randomImIndexs]
+            # allim_hs = [allim_hs[index] for index in randomImIndexs]
+            # alllandmarks = [alllandmarks[index] for index in randomImIndexs]
+            # _, _, shape, _ = getMeshFromMultiLandmarks_IWH(alllandmarks, allim_ws, allim_hs, num_shape_coefficients_to_fit=10)
+            # hotMesh = eos.morphablemodel.draw_sample(model, blendshapes, shape, [], [])
+            #
+            # with open(os.path.join(outpath, title + "_fitted.msg"), 'w') as outfile:
+            #     meshjson = exportMeshToJSON(hotMesh)
+            #     msgpack.dump(meshjson, outfile)
+            #     # json.dump(meshjson, outfile, indent=4, sort_keys=True)
 
-        im = cv2.imread(impath)
-        im = ensureImageLessThanMax(im)
+            # for k in randomSampleIndexs:
+            #     attractiveness = hotAttractiveness[k]
+            #     impaths = hotImpathss[k]
+            #     poses = hotPosess[k]
+            #     faceFeatures = hotFacefeatures[k]
+            #     blendshapes_coeffs = hotBlendshape_coeffss[k]
+            #
+            #     yaws = np.array([pose.get_rotation_euler_angles()[1] for pose in poses])
+            #     frontalIndex = np.argmin(np.absolute(yaws))
+            #
+            #     impath = impaths[frontalIndex]
+            #     im = cv2.imread(impath)
+            #     # im = ensureImageLessThanMax(im)
+            #
+            #     mesh = eos.morphablemodel.draw_sample(model, blendshapes, faceFeatures, blendshapes_coeffs[frontalIndex], [])
+            #     pose = poses[frontalIndex]
+            #
+            #     isomap = createTextureMap(mesh, pose, im)
+            #
+            #     foldername = impath.split("\\")[-2]
+            #     isoout = os.path.join(outpath, "faces/%0.2f_%s.png" % (attractiveness,foldername))
+            #     cv2.imwrite(isoout, isomap)
+            #
+            #     isomap[:, :, 3] = isomap[:, :, 3] / 255
+            #     if avgFace is None:
+            #         avgFace = isomap.copy().astype(np.uint64)
+            #     else:
+            #         avgFace += isomap
+            #
+            #     print("%s %d %d %s/%s" % (gender, hotness, hotFacefeatures.shape[0], k, hotFacefeatures.shape[0]))
+            # countDivisor = np.repeat(avgFace[:, :, 3][:, :, np.newaxis], 3, axis=2)
+            # avgFace = avgFace[:, :, :3] / countDivisor
+            #
+            # cv2.imwrite(os.path.join(outpath, title+".jpg"),avgFace)
 
-        mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
-        isomap = createTextureMap(mesh, pose, im)
-        isomap[:, :, 3] = isomap[:, :, 3] / 255
-        if avgFace is None:
-            avgFace = isomap.copy().astype(np.uint64)
-        else:
-            avgFace += isomap
+def ensureImageSmallestDimension(im, dimsize=40):
+    height, width, depth = im.shape
+    if width > height:
+        ratio = dimsize / float(height)
+        height = dimsize
+        width = int(width * ratio)
+    else:
+        ratio = dimsize / float(width)
+        width = dimsize
+        height = int(height * ratio)
+    if width < dimsize:
+        width = dimsize
+    if height < dimsize:
+        height = dimsize
+    im = cv2.resize(im,(width,height))
+    return im
 
-        count += 1
+def averageFacesImage(df, outpath):
+    detector = dlib.get_frontal_face_detector()
+    numRows = 7
+    facesPerRow = 26
+    imageSize = 30
 
-        # countDivisor = np.repeat(avgFace[:,:,3][:,:,np.newaxis],3, axis=2)
-        # cv2.imshow("face", (avgFace[:,:,:3]/countDivisor).astype(np.uint8))
-        # cv2.waitKey(1)
-        print("%s %d %d %s/%s" % (gender, hotness, hotFacefeatures.shape[0], k, hotImpaths.shape[0]))
+    FULLIm = np.zeros((numRows * imageSize, facesPerRow * imageSize*2, 3), dtype=np.uint8)
 
-    countDivisor = np.repeat(avgFace[:, :, 3][:, :, np.newaxis], 3, axis=2)
-    avgFace = avgFace[:, :, :3] / countDivisor
+    # df = df[df["numImages"] >= 2]
+    df = df.sort(['attractiveness'])
+    grouped = df.groupby("gender")
+    for i, (gender, group) in enumerate(grouped):
+        fullIm = np.zeros((numRows * imageSize, facesPerRow * imageSize, 3), dtype=np.uint8)
 
-    cv2.imwrite(os.path.join(outpath, "averageFaces_%s_%0.2f_%d.jpg" % (gender, hotness, hotImpaths.shape[0])),
-                avgFace)
+        numPeople = group.shape[0]
+        numPeoplePerRow = int(numPeople / numRows)
+        for j in range(numRows):
+            rowPeople = group.iloc[numPeoplePerRow*j:numPeoplePerRow*(j+1)]
 
-    exportMeshToJSON(hotMesh, os.path.join(outpath, "averageFaces_%s_%0.2f_%d.json" % (gender, hotness, hotImpaths.shape[0])))
+            # randomSampleIndexs = np.linspace(0,rowPeople.shape[0]-1,facesPerRow).astype(np.int32)
+            randomSampleIndexs = random.sample(range(numPeoplePerRow), facesPerRow)
+
+            impathss = np.array(rowPeople["impaths"].as_matrix().tolist())
+            attractiveness = np.array(rowPeople["attractiveness"].as_matrix().tolist())
+            for l,k in enumerate(randomSampleIndexs):
+                impaths = impathss[k]
+                randomImIndexs = random.sample(range(len(impaths)), len(impaths))
+
+                for index in randomImIndexs:
+                    im = cv2.imread(impaths[index])
+
+                    rects = detector(im, 1)
+                    if len(rects) != 1:
+                        continue
+                    rect = rects[0]
+                    ryt = max(rect.top() - (rect.height()*0.2)      ,0)
+                    ryb = min(rect.bottom() + (rect.height()*0.2)   , im.shape[0])
+                    rxl = max(rect.left() - (rect.width()*0.2)      ,0)
+                    rxr = min(rect.right() + (rect.width()*0.2)     ,im.shape[1])
+
+                    faceim = im[ryt:ryb, rxl:rxr]
+                    if faceim.shape[0] < 40 or faceim.shape[1] < 40:
+                        continue
+                    faceim = ensureImageSmallestDimension(faceim, imageSize)
+
+                    y=j*imageSize
+                    x=l*imageSize
+                    print("%d,%d"%(x,y))
+
+                    fullIm[y:y + imageSize, x:x + imageSize, :] = faceim[:imageSize, :imageSize, :]
+
+                    x = (l*(imageSize*2)) + (imageSize*((i+j)%2))
+                    FULLIm[y:y + imageSize, x:x + imageSize, :] = faceim[:imageSize, :imageSize, :]
+                    cv2.imshow("faces", FULLIm)
+                    cv2.waitKey(1)
+                    break
+
+        cv2.imwrite(os.path.join(outpath, "allfaces_%s.jpg"%gender),fullIm)
+    cv2.imwrite(os.path.join(outpath, "allfaces.jpg" ), FULLIm)
+
 
 if __name__ == "__main__":
     #load in the dataframes for analysis
-    df = pd.read_pickle("../US10k/US10kData.p")
+    df = loadRateMeFacialFeatures()
 
-    averageFaces3D(df, "./us10k3D/")
+    # averageFaces3D(df, "./rateme3D/")
+    averageFacesImage(df, "./rateme3D/")

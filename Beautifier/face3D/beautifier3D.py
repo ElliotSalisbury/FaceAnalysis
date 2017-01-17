@@ -29,7 +29,7 @@ def findBestFeaturesOptimisation(features3D, gp):
     optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, features3D, bounds=bounds, method='SLSQP', options={"maxiter": 5, "eps": 0.001})
     return optimalNewFaceFeatures.x
 
-def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN'):
+def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN', exaggeration=0.5):
     mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
     features3D = np.array(shape_coeffs)
 
@@ -39,6 +39,9 @@ def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN'):
         newFaceFeatures = findBestFeaturesOptimisation(features3D, gp)
     elif method == 'fudge it':
         newFaceFeatures = findBestFeaturesFudge(features3D)
+
+    delta = newFaceFeatures - features3D
+    newFaceFeatures = features3D + (delta*exaggeration)
 
     newMesh = eos.morphablemodel.draw_sample(model, blendshapes, newFaceFeatures, blendshape_coeffs,[])#newFaceFeatures[63:], [])
 
