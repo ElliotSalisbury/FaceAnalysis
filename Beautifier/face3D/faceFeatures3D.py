@@ -2,7 +2,7 @@ import eos
 import numpy as np
 import os
 import cv2
-from Beautifier.faceFeatures import getLandmarks
+from Beautifier.faceFeatures import getLandmarks, faceLines
 
 EOS_SHARE_PATH = os.environ['EOS_DATA_PATH']
 
@@ -13,6 +13,16 @@ landmark_mapper = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug2did.
 edge_topology = eos.morphablemodel.load_edge_topology(os.path.join(EOS_SHARE_PATH,"sfm_3448_edge_topology.json"))
 contour_landmarks = eos.fitting.ContourLandmarks.load(os.path.join(EOS_SHARE_PATH,"ibug2did.txt"))
 model_contour = eos.fitting.ModelContour.load(os.path.join(EOS_SHARE_PATH,"model_contours.json"))
+
+vertIndices = [landmark_mapper.convert(str(l)) for l in range(69)]
+vertIndices = [int(i) if i else -1 for i in vertIndices]
+
+newFaceLines = []
+for line in faceLines:
+    if vertIndices[line[0]] == -1 or vertIndices[line[1]] == -1:
+        continue
+    newFaceLines.append(line)
+newFaceLines = np.array(newFaceLines)
 
 def getMeshFromLandmarks(landmarks, im, num_iterations=5, num_shape_coefficients_to_fit=-1):
     image_width = im.shape[1]
@@ -67,6 +77,15 @@ def getFaceFeatures3D(ims, landmarkss=None, num_iterations=5, num_shape_coeffici
     meshs, poses, shape_coeffs, blendshape_coeffs = getMeshFromMultiLandmarks(landmarkss, imswlandmarks, num_iterations=num_iterations, num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
 
     return shape_coeffs
+
+def getFaceFeatures3D2D(im, landmarks, num_iterations=5, num_shape_coefficients_to_fit=-1):
+    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=num_iterations, num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
+
+    verts = np.array(mesh.vertices)[vertIndices]
+
+    faceFeatures = verts[newFaceLines[:, 0]] - verts[newFaceLines[:, 1]]
+    faceFeatures = np.linalg.norm(faceFeatures, axis=1)
+    return faceFeatures
 
 def createTextureMap(mesh, pose, im):
     return eos.render.extract_texture(mesh, pose, im)
