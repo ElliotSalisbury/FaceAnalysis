@@ -134,7 +134,7 @@ def dataFrameTo2D(df):
         poses = row["poses"]
         blendshape_coeffss = row["blendshape_coeffss"]
 
-        for i in range(row["numImages"]):
+        for i in range(row["numUsableImages"]):
             impath = impaths[i]
             landmarks = landmarkss[i]
             facefeatures = facefeaturess[i]
@@ -210,5 +210,7 @@ if __name__ == "__main__":
     trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
     trainGP(df2d, os.path.join(scriptFolder, "3d2d"), trainPercentage=0.9, featureset="facefeatures3D2D", train_on_PCA=False, generate_PCA=True)
 
-    moreaccurate = df[df["numImages"]>=5]
+    moreaccurate = df[df["numUsableImages"]>=5]
     trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
+
+    saveServerOptimised()

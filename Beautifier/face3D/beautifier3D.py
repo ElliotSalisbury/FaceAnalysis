@@ -64,7 +64,7 @@ def findBestFeaturesOptimisation(features3D, gp):
     return optimalNewFaceFeatures.x
 
 def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN', exaggeration=0.5):
-    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
+    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=-1)
     features3D = np.array(shape_coeffs)
 
     if method=='KNN':
