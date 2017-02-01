@@ -120,6 +120,8 @@ def saveFacialFeatures(combinedcsvpath):
     return allDataDF
 
 def dataFrameTo2D(df):
+    import eos
+    from Beautifier.face3D.faceFeatures3D import model, blendshapes, getFaceFeatures3D2DFromMesh
     allData = []
     for index, row in df.iterrows():
         gender = row["gender"]
@@ -139,8 +141,11 @@ def dataFrameTo2D(df):
             pose = poses[i]
             blendshape_coeffs = blendshape_coeffss[i]
 
+            mesh = eos.morphablemodel.draw_sample(model, blendshapes, facefeatures3D, blendshape_coeffs, [])
+            landmarks3D, facefeatures3D2D = getFaceFeatures3D2DFromMesh(mesh)
+
             dataDict = {"gender": gender, "attractiveness": attractiveness,
-                        "landmarks": landmarks, "facefeatures": facefeatures,
+                        "landmarks": landmarks, "facefeatures": facefeatures, "landmarks3D":landmarks3D, "facefeatures3D2D": facefeatures3D2D,
                         "facefeatures3D": facefeatures3D, "pose":pose, "blendshape_coeffs": blendshape_coeffs,
                         "impath": impath}
             allData.append(dataDict)
@@ -170,7 +175,7 @@ def loadRateMe(type="2d", gender="F", server=False):
         return pickle.load(open(os.path.join(scriptFolder, "server/%s_%s.p"%(type,gender)), "rb"))
 
     df = loadRateMeFacialFeatures()
-    if type=="2d":
+    if type=="2d" or type=="3d2d":
         df = dataFrameTo2D(df)
 
     df_G = df.loc[df['gender'] == gender]
@@ -178,6 +183,8 @@ def loadRateMe(type="2d", gender="F", server=False):
     featuresIndex = "facefeatures"
     if type=="3d":
         featuresIndex = "facefeatures3D"
+    elif type=="3d2d":
+        featuresIndex = "facefeatures3D2D"
 
     trainX = np.array(df_G[featuresIndex].as_matrix().tolist())
     trainY = np.array(df_G["attractiveness"].as_matrix().tolist())
@@ -192,15 +199,16 @@ def saveServerOptimised():
                 pickle.dump(loadRateMe(type=type, gender=gender), file)
 
 if __name__ == "__main__":
-    rateMeFolder = "E:\\Facedata\\RateMe"
-    combinedPath = os.path.join(rateMeFolder, "combined.csv")
+    # rateMeFolder = "E:\\Facedata\\RateMe"
+    # combinedPath = os.path.join(rateMeFolder, "combined.csv")
 
-    df = saveFacialFeatures(combinedPath)
-    # df = loadRateMeFacialFeatures()
+    # df = saveFacialFeatures(combinedPath)
+    df = loadRateMeFacialFeatures()
 
 
     df2d = dataFrameTo2D(df)
     trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
+    trainGP(df2d, os.path.join(scriptFolder, "3d2d"), trainPercentage=0.9, featureset="facefeatures3D2D", train_on_PCA=False, generate_PCA=True)
 
     moreaccurate = df[df["numImages"]>=5]
     trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)

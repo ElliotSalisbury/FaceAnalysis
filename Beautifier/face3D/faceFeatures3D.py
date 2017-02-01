@@ -14,7 +14,7 @@ edge_topology = eos.morphablemodel.load_edge_topology(os.path.join(EOS_SHARE_PAT
 contour_landmarks = eos.fitting.ContourLandmarks.load(os.path.join(EOS_SHARE_PATH,"ibug2did.txt"))
 model_contour = eos.fitting.ModelContour.load(os.path.join(EOS_SHARE_PATH,"model_contours.json"))
 
-vertIndices = [landmark_mapper.convert(str(l)) for l in range(69)]
+vertIndices = [landmark_mapper.convert(l) for l in landmark_ids]
 vertIndices = [int(i) if i else -1 for i in vertIndices]
 
 newFaceLines = []
@@ -78,14 +78,12 @@ def getFaceFeatures3D(ims, landmarkss=None, num_iterations=5, num_shape_coeffici
 
     return shape_coeffs
 
-def getFaceFeatures3D2D(im, landmarks, num_iterations=5, num_shape_coefficients_to_fit=-1):
-    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=num_iterations, num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
-
+def getFaceFeatures3D2DFromMesh(mesh):
     verts = np.array(mesh.vertices)[vertIndices]
 
     faceFeatures = verts[newFaceLines[:, 0]] - verts[newFaceLines[:, 1]]
     faceFeatures = np.linalg.norm(faceFeatures, axis=1)
-    return faceFeatures
+    return verts, faceFeatures
 
 def createTextureMap(mesh, pose, im):
     return eos.render.extract_texture(mesh, pose, im)

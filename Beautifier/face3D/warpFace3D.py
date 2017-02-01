@@ -94,8 +94,7 @@ def project(p, modelview, proj, viewport):
 
     return np.array(tmp[0:2]).flatten()
 
-def projectMeshTo2D(mesh, pose, image):
-    verts = np.array(mesh.vertices)
+def projectVertsTo2D(verts, pose, image):
     modelview = np.matrix(pose.get_modelview())
     proj = np.matrix(pose.get_projection())
     viewport = np.array([0,image.shape[0], image.shape[1], -image.shape[0]])
@@ -105,6 +104,10 @@ def projectMeshTo2D(mesh, pose, image):
         verts2d[i,:] = project(vert, modelview, proj, viewport)
 
     return verts2d
+
+def projectMeshTo2D(mesh, pose, image):
+    verts = np.array(mesh.vertices)
+    return projectVertsTo2D(verts, pose, image)
 
 def getVisibleFacesIndexs(mesh, pose):
     verts = np.array(mesh.vertices)[:,:3]
