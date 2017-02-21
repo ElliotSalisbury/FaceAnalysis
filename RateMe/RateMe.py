@@ -6,6 +6,7 @@ import pickle
 from Beautifier.gaussianProcess import trainGP
 from Beautifier.faceFeatures import getFaceFeatures
 from Beautifier.face3D.faceFeatures3D import getMeshFromMultiLandmarks
+from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
 import numpy as np
 import math
 
@@ -96,7 +97,11 @@ def saveFacialFeatures(combinedcsvpath):
                 continue
 
         if len(ims) > 0:
-            meshs, poses, shape_coeffs, blendshape_coeffss = getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=10)
+            print("(%i/%i) #i:%i" % (i, len(grouped), len(ims)))
+            print(usedImPaths)
+            meshs, poses, shape_coeffs, blendshape_coeffss = getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=-1, num_iterations=-1)
+
+            facefeaturesCNN = getFaceFeaturesCNN(ims, landmarkss)
 
             dataDict = {"submissionId":submissionId, "submissionCreatedUTC":submissionCreatedUTC, "gender": submissionGender, "age": submissionAge,
                         "comments": comments,
@@ -106,10 +111,11 @@ def saveFacialFeatures(combinedcsvpath):
                         "landmarkss": landmarkss, "facefeaturess": faceFeaturess,
                         # "meshs": meshs, can be regenerated from the coeffs below
                         "poses": poses, "facefeatures3D": shape_coeffs, "blendshape_coeffss": blendshape_coeffss,
+                        "facefeaturesCNN": facefeaturesCNN,
                         }
             allData.append(dataDict)
             pickler.dump(dataDict)
-            print("%i / %i" % (i, len(grouped)))
+
 
     sfile.close()
 
@@ -163,9 +169,10 @@ def load(filename):
                 break
 
 def loadRateMeFacialFeatures():
-    stuff = load(os.path.join(scriptFolder, "RateMeData_FULL.p"))
-    df = pd.DataFrame(stuff)
-    df = df.sample(frac=1).reset_index(drop=True)
+    # stuff = load(os.path.join(scriptFolder, "RateMeData_FULL.p"))
+    # df = pd.DataFrame(stuff)
+    # df = df.sample(frac=1).reset_index(drop=True)
+    df = pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
     return df
     # return pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
 def loadRateMePCAGP(type="2d", gender="F"):
@@ -185,6 +192,8 @@ def loadRateMe(type="2d", gender="F", server=False):
         featuresIndex = "facefeatures3D"
     elif type=="3d2d":
         featuresIndex = "facefeatures3D2D"
+    elif type == "cnn":
+        featuresIndex = "facefeaturesCNN"
 
     trainX = np.array(df_G[featuresIndex].as_matrix().tolist())
     trainY = np.array(df_G["attractiveness"].as_matrix().tolist())
@@ -210,7 +219,9 @@ if __name__ == "__main__":
     trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
     trainGP(df2d, os.path.join(scriptFolder, "3d2d"), trainPercentage=0.9, featureset="facefeatures3D2D", train_on_PCA=False, generate_PCA=True)
 
-    moreaccurate = df[df["numUsableImages"]>=5]
+    moreaccurate = df[df["numUsableImages"]>=1]
     trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
+
+    trainGP(df, os.path.join(scriptFolder, "cnn"), trainPercentage=0.9, featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
 
     saveServerOptimised()

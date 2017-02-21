@@ -23,6 +23,10 @@ def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures", train_o
         testX = np.array(group[featureset][trainSize:].as_matrix().tolist())
         testY = np.array(group["attractiveness"][trainSize:].as_matrix().tolist())
 
+        if featureset == "facefeaturesCNN":
+            trainX = trainX[:, 0:99]
+            testX = testX[:, 0:99]
+
         if generate_PCA:
             pca = fitPCA(trainX)
             if train_on_PCA:
