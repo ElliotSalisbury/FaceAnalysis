@@ -99,7 +99,7 @@ def saveFacialFeatures(combinedcsvpath):
         if len(ims) > 0:
             print("(%i/%i) #i:%i" % (i, len(grouped), len(ims)))
             print(usedImPaths)
-            meshs, poses, shape_coeffs, blendshape_coeffss = getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=-1, num_iterations=-1)
+            meshs, poses, shape_coeffs, blendshape_coeffss = getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=-1, num_iterations=300)
 
             facefeaturesCNN = getFaceFeaturesCNN(ims, landmarkss)
 
@@ -208,20 +208,20 @@ def saveServerOptimised():
                 pickle.dump(loadRateMe(type=type, gender=gender), file)
 
 if __name__ == "__main__":
-    # rateMeFolder = "E:\\Facedata\\RateMe"
-    # combinedPath = os.path.join(rateMeFolder, "combined.csv")
+    rateMeFolder = "E:\\Facedata\\RateMe"
+    combinedPath = os.path.join(rateMeFolder, "combined.csv")
 
-    # df = saveFacialFeatures(combinedPath)
-    df = loadRateMeFacialFeatures()
+    df = saveFacialFeatures(combinedPath)
+    # df = loadRateMeFacialFeatures()
 
 
-    df2d = dataFrameTo2D(df)
-    trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
-    trainGP(df2d, os.path.join(scriptFolder, "3d2d"), trainPercentage=0.9, featureset="facefeatures3D2D", train_on_PCA=False, generate_PCA=True)
-
-    moreaccurate = df[df["numUsableImages"]>=1]
-    trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
-
-    trainGP(df, os.path.join(scriptFolder, "cnn"), trainPercentage=0.9, featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
-
-    saveServerOptimised()
+    # df2d = dataFrameTo2D(df)
+    # trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
+    # trainGP(df2d, os.path.join(scriptFolder, "3d2d"), trainPercentage=0.9, featureset="facefeatures3D2D", train_on_PCA=False, generate_PCA=True)
+    #
+    # moreaccurate = df[df["numUsableImages"]>=1]
+    # trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
+    #
+    # trainGP(df, os.path.join(scriptFolder, "cnn"), trainPercentage=0.9, featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
+    #
+    # saveServerOptimised()

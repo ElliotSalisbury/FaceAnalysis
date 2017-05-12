@@ -24,7 +24,7 @@ for line in faceLines:
     newFaceLines.append(line)
 newFaceLines = np.array(newFaceLines)
 
-def getMeshFromLandmarks(landmarks, im, num_iterations=5, num_shape_coefficients_to_fit=-1):
+def getMeshFromLandmarks(landmarks, im, num_iterations=50, num_shape_coefficients_to_fit=-1):
     image_width = im.shape[1]
     image_height = im.shape[0]
 

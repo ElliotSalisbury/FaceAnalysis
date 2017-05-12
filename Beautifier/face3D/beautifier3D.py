@@ -120,8 +120,8 @@ def compareMethods(im, datasets):
     for i, dataset in enumerate(datasets):
         trainX, trainY, pca, gp = dataset
 
-        KNN = beautifyFace3D2D(im, landmarks, pca, gp, trainX, trainY, method='KNN')
-        GP = beautifyFace3D2D(im, landmarks, pca, gp, trainX, trainY, method='GP')
+        KNN = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN', exaggeration=1)
+        GP = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='GP', exaggeration=1)
 
         displayIm[im.shape[0] * i:im.shape[0] * (i + 1), im.shape[1]:im.shape[1] * 2, :] = KNN
         displayIm[im.shape[0] * i:im.shape[0] * (i + 1), im.shape[1] * 2:im.shape[1] * 3, :] = GP
@@ -157,12 +157,13 @@ if __name__ == "__main__":
     dstFolder = "./results3F/"
 
     datasets = [#loadUS10k(type="3d", gender=GENDER),
-                loadRateMe(type="3d2d", gender=GENDER)]
+                loadRateMe(type="3d", gender=GENDER)]
 
     print("begin beautification")
     import glob
 
-    for i, impath in enumerate(glob.glob(r"C:\Users\Elliot\Desktop\*.png")):
+    for i, impath in enumerate(glob.glob(r"E:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg")):
+        print(i)
         im = cv2.imread(impath)
         filename = os.path.basename(impath)
 
@@ -172,6 +173,6 @@ if __name__ == "__main__":
         cv2.waitKey(1)
         cv2.imwrite(os.path.join(dstFolder, filename), comparedIm)
 
-        compareIndex = 1
+        compareIndex = 0
         cv2.imwrite(os.path.join(dstFolder, "compare/%i_1.jpg" % i), im)
         cv2.imwrite(os.path.join(dstFolder, "compare/%i_2.jpg" % i), comparedIm[im.shape[0] * compareIndex:im.shape[0] * (compareIndex + 1), im.shape[1] * 2:im.shape[1] * 3, :])
