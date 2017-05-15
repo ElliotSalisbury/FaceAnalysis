@@ -181,16 +181,17 @@ def drawMesh(im, mesh, pose):
 
     return drawIm
 
-def warpFace3D(im, oldMesh, pose, newMesh):
+def warpFace3D(im, oldMesh, pose, newMesh, accurate=False):
     oldVerts2d = projectMeshTo2D(oldMesh, pose, im)
-    oldConvexHullIndexs = cv2.convexHull(oldVerts2d.astype(np.float32), returnPoints=False)
-
-    warpPointIndexs = oldConvexHullIndexs.flatten().tolist() + ALL_FACE_MESH_VERTS
-    oldLandmarks = oldVerts2d[warpPointIndexs]
-
     newVerts2d = projectMeshTo2D(newMesh, pose, im)
-    newLandmarks = newVerts2d[warpPointIndexs]
 
-    warpedIm = warpFace(im, oldLandmarks, newLandmarks)
+    if not accurate:
+        oldConvexHullIndexs = cv2.convexHull(oldVerts2d.astype(np.float32), returnPoints=False)
+        warpPointIndexs = oldConvexHullIndexs.flatten().tolist() + ALL_FACE_MESH_VERTS
+
+        oldVerts2d = oldVerts2d[warpPointIndexs]
+        newVerts2d = newVerts2d[warpPointIndexs]
+
+    warpedIm = warpFace(im, oldVerts2d, newVerts2d)
 
     return warpedIm

@@ -26,27 +26,29 @@ if __name__ == "__main__":
         for i, impath in enumerate(glob.glob(srcFolder)):
             if i >= max_I:
                 break
-            # im = cv2.imread(impath)
-            # filename = os.path.basename(impath)
-            #
-            # landmarks = getLandmarks(im)
-            # mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=300)
+            im = cv2.imread(impath)
+            filename = os.path.basename(impath)
+
+            landmarks = getLandmarks(im)
+            mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=300)
 
             coeff_deltas = np.linspace(-1, 1, 3)
             n_coeffs = 2
 
-            # for coeff_delta_vec in itertools.product(coeff_deltas, repeat=n_coeffs):
-            #     coeff_delta_vec = np.array(coeff_delta_vec)
-            #     new_coeffs = shape_coeffs.copy()
-            #     new_coeffs[:coeff_delta_vec.shape[0]] += coeff_delta_vec
-            #
-            #     newMesh = eos.morphablemodel.draw_sample(model, blendshapes, new_coeffs, blendshape_coeffs, [])
-            #
-            #     warpedIm = warpFace3D(im, mesh, pose, newMesh)
-            #     cv2.imshow("warped", warpedIm)
-            #     outFile = os.path.join(dstFolder, create_filename(i, coeff_delta_vec))
-            #     cv2.imwrite(outFile, warpedIm)
-            #     cv2.waitKey(1)
+            for coeff_delta_vec in itertools.product(coeff_deltas, repeat=n_coeffs):
+                print(coeff_delta_vec)
+
+                coeff_delta_vec = np.array(coeff_delta_vec)
+                new_coeffs = shape_coeffs.copy()
+                new_coeffs[:coeff_delta_vec.shape[0]] += coeff_delta_vec
+
+                newMesh = eos.morphablemodel.draw_sample(model, blendshapes, new_coeffs, blendshape_coeffs, [])
+
+                warpedIm = warpFace3D(im, mesh, pose, newMesh, accurate=True)
+                cv2.imshow("warped", warpedIm)
+                outFile = os.path.join(dstFolder, "{}.jpg".format(coeff_delta_vec))
+                cv2.imwrite(outFile, warpedIm)
+                cv2.waitKey(1)
 
             url = "https://crowdrobotics.org/static/img/mturk/pilot/"
             mturk_experiments = []
