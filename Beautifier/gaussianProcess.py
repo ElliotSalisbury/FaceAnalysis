@@ -14,7 +14,7 @@ def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures", train_o
     grouped = df.groupby("gender")
 
     for gender, group in grouped:
-        print("training %s GP" % gender)
+        print("training {} GP on {} features".format(gender,featureset))
 
         trainSize = int(group.shape[0] * trainPercentage)
         trainX = np.array(group[featureset][:trainSize].as_matrix().tolist())
