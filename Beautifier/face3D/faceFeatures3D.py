@@ -14,6 +14,9 @@ edge_topology = eos.morphablemodel.load_edge_topology(os.path.join(EOS_SHARE_PAT
 contour_landmarks = eos.fitting.ContourLandmarks.load(os.path.join(EOS_SHARE_PATH,"ibug2did.txt"))
 model_contour = eos.fitting.ModelContour.load(os.path.join(EOS_SHARE_PATH,"model_contours.json"))
 
+model_bfm = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"bfm2009.bin"))
+landmark_mapper_bfm = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug_to_bfm.txt"))
+
 vertIndices = [landmark_mapper.convert(l) for l in landmark_ids]
 vertIndices = [int(i) if i else -1 for i in vertIndices]
 
