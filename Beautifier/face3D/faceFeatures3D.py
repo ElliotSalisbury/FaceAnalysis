@@ -18,13 +18,13 @@ model_bfm = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"bfm2009.b
 landmark_mapper_bfm = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug_to_bfm.txt"))
 
 landmarks_2_vert_indices = [landmark_mapper.convert(l) for l in landmark_ids]
-landmarks_2_vert_indices = [int(i) if i else -1 for i in landmarks_2_vert_indices]
+landmarks_2_vert_indices = np.array([int(i) if i else -1 for i in landmarks_2_vert_indices])
 
 faceLines3D2D = []
 for line in faceLines:
     if landmarks_2_vert_indices[line[0]] == -1 or landmarks_2_vert_indices[line[1]] == -1:
         continue
-        faceLines3D2D.append(line)
+    faceLines3D2D.append(line)
 faceLines3D2D = np.array(faceLines3D2D)
 
 def getMeshFromLandmarks(landmarks, im, num_iterations=50, num_shape_coefficients_to_fit=-1):

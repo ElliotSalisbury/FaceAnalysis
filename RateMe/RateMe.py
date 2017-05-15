@@ -130,6 +130,7 @@ def dataFrameTo2D(df):
     from Beautifier.face3D.faceFeatures3D import model, blendshapes, getFaceFeatures3D2DFromMesh
     allData = []
     for index, row in df.iterrows():
+        print("converting index {}/{} to a 2d dataframe".format(index, len(df)))
         gender = row["gender"]
         attractiveness = row["attractiveness"]
         facefeatures3D = row["facefeatures3D"]
@@ -147,7 +148,8 @@ def dataFrameTo2D(df):
             pose = poses[i]
             blendshape_coeffs = blendshape_coeffss[i]
 
-            mesh = eos.morphablemodel.draw_sample(model, blendshapes, facefeatures3D, blendshape_coeffs, [])
+            # mesh = eos.morphablemodel.draw_sample(model, blendshapes, facefeatures3D, blendshape_coeffs, [])
+            mesh = eos.morphablemodel.draw_sample(model, blendshapes, facefeatures3D, [], [])
             landmarks3D, facefeatures3D2D = getFaceFeatures3D2DFromMesh(mesh)
 
             dataDict = {"gender": gender, "attractiveness": attractiveness,
@@ -157,6 +159,7 @@ def dataFrameTo2D(df):
             allData.append(dataDict)
     allDataDF = pd.DataFrame(allData)
     allDataDF = allDataDF.sample(frac=1).reset_index(drop=True)
+    allDataDF.to_pickle(os.path.join(scriptFolder, "RateMeData2D.p"))
     return allDataDF
 
 def load(filename):
@@ -168,11 +171,14 @@ def load(filename):
             except EOFError:
                 break
 
-def loadRateMeFacialFeatures():
+def loadRateMeFacialFeatures(type='3d'):
     # stuff = load(os.path.join(scriptFolder, "RateMeData_FULL.p"))
     # df = pd.DataFrame(stuff)
     # df = df.sample(frac=1).reset_index(drop=True)
-    df = pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
+    if type == '3d':
+        df = pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
+    elif type == '2d':
+        df = pd.read_pickle(os.path.join(scriptFolder, "RateMeData2D.p"))
     return df
     # return pd.read_pickle(os.path.join(scriptFolder, "RateMeData.p"))
 def loadRateMePCAGP(type="2d", gender="F"):
@@ -181,9 +187,10 @@ def loadRateMe(type="2d", gender="F", server=False):
     if server:
         return pickle.load(open(os.path.join(scriptFolder, "server/%s_%s.p"%(type,gender)), "rb"))
 
-    df = loadRateMeFacialFeatures()
     if type=="2d" or type=="3d2d":
-        df = dataFrameTo2D(df)
+        df = loadRateMeFacialFeatures(type='2d')
+    else:
+        df = loadRateMeFacialFeatures()
 
     df_G = df.loc[df['gender'] == gender]
 
@@ -211,17 +218,18 @@ if __name__ == "__main__":
     rateMeFolder = "E:\\Facedata\\RateMe"
     combinedPath = os.path.join(rateMeFolder, "combined.csv")
 
-    df = saveFacialFeatures(combinedPath)
-    # df = loadRateMeFacialFeatures()
-
+    # df = saveFacialFeatures(combinedPath)
+    df = loadRateMeFacialFeatures()
 
     # df2d = dataFrameTo2D(df)
-    # trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
-    # trainGP(df2d, os.path.join(scriptFolder, "3d2d"), trainPercentage=0.9, featureset="facefeatures3D2D", train_on_PCA=False, generate_PCA=True)
-    #
-    # moreaccurate = df[df["numUsableImages"]>=1]
-    # trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
-    #
-    # trainGP(df, os.path.join(scriptFolder, "cnn"), trainPercentage=0.9, featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
-    #
-    # saveServerOptimised()
+    df2d = loadRateMeFacialFeatures(type='2d')
+
+    trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
+    trainGP(df2d, os.path.join(scriptFolder, "3d2d"), trainPercentage=0.9, featureset="facefeatures3D2D", train_on_PCA=False, generate_PCA=True)
+
+    moreaccurate = df[df["numUsableImages"]>=1]
+    trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
+
+    trainGP(df, os.path.join(scriptFolder, "cnn"), trainPercentage=0.9, featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
+
+    saveServerOptimised()

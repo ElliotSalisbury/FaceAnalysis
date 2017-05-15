@@ -3,7 +3,7 @@ import cv2
 from Beautifier.beautifier import findBestFeaturesKNN, LEFT_EYE_POINTS, RIGHT_EYE_POINTS, MOUTH_POINTS, NOSE_POINTS
 from Beautifier.warpFace import warpFace, drawLandmarks
 from Beautifier.faceFeatures import getLandmarks
-from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D, getMeshFromLandmarks, model, blendshapes, getFaceFeatures3D2DFromMesh, newFaceLines, vertIndices
+from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D, getMeshFromLandmarks, model, blendshapes, getFaceFeatures3D2DFromMesh, faceLines3D2D
 from Beautifier.face3D.warpFace3D import warpFace3D, projectVertsTo2D
 import eos
 import os
@@ -12,7 +12,7 @@ import scipy
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
 
 alphaWeighting = []
-for line in newFaceLines:
+for line in faceLines3D2D:
     weight = 1
     if line[0] in LEFT_EYE_POINTS and line[1] in LEFT_EYE_POINTS:
         weight = 10
@@ -25,29 +25,22 @@ for line in newFaceLines:
     alphaWeighting.append(weight)
 alphaWeighting = np.array(alphaWeighting)
 
-def calculateLandmarksfromFeatures(originalLandmarks, optimalFaceFeatures):
+def calculateFeatures3DfromFeatures3D2D(originalFeatures3D, optimalFaceFeatures3D2D):
     print("minimising cost of distance constraints from facial features")
 
-    # cost function used to minimize the stress between face features
-    def costFunction(landmarks):
-        landmarks = np.reshape(landmarks, (-1, 3))
-        faceFeatures = landmarks[newFaceLines[:, 0]] - landmarks[newFaceLines[:, 1]]
-        faceFeatures = np.linalg.norm(faceFeatures, axis=1)
+    # cost function used to find the shape coefficients that match the 3D2D face features
+    def costFunction(features3D):
+        newMesh = eos.morphablemodel.draw_sample(model, blendshapes, features3D, [], [])  # newFaceFeatures[63:], [])
 
-        return np.sum(alphaWeighting * np.square(np.square(faceFeatures) - np.square(optimalFaceFeatures)))
+        verts, newFaceFeatures3D2D = getFaceFeatures3D2DFromMesh(newMesh)
+
+        return np.sum(alphaWeighting * np.square(newFaceFeatures3D2D - optimalFaceFeatures3D2D))
 
     # find facial landmarks that fit these new distances
-    newLandmarks = scipy.optimize.minimize(costFunction, originalLandmarks[:,:3])
-    newLandmarks = np.reshape(newLandmarks.x, (-1, 3))
+    newFeatures3D = scipy.optimize.minimize(costFunction, originalFeatures3D)
+    newFeatures3D = newFeatures3D.x
 
-    newLandmarks = np.hstack([newLandmarks, np.ones((newLandmarks.shape[0],1), dtype=np.float64)])
-
-    return newLandmarks
-
-def findBestFeaturesFudge(features3D):
-    features3D[2] -= 2
-    features3D[3] -= 1
-    return features3D
+    return newFeatures3D
 
 def findBestFeaturesOptimisation(features3D, gp):
     print("finding optimal face features optimisation")
@@ -68,48 +61,34 @@ def beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN', exagger
     features3D = np.array(shape_coeffs)
 
     if method=='KNN':
-        newFaceFeatures = findBestFeaturesKNN(features3D, pca, gp, trainX, trainY)
+        newFeatures3D = findBestFeaturesKNN(features3D, pca, gp, trainX, trainY)
     elif method == 'GP':
-        newFaceFeatures = findBestFeaturesOptimisation(features3D, gp)
-    elif method == 'fudge it':
-        newFaceFeatures = findBestFeaturesFudge(features3D)
+        newFeatures3D = findBestFeaturesOptimisation(features3D, gp)
 
-    delta = newFaceFeatures - features3D
-    newFaceFeatures = features3D + (delta*exaggeration)
+    delta = newFeatures3D - features3D
+    newFeatures3D = features3D + (delta*exaggeration)
 
-    newMesh = eos.morphablemodel.draw_sample(model, blendshapes, newFaceFeatures, blendshape_coeffs,[])#newFaceFeatures[63:], [])
+    newMesh = eos.morphablemodel.draw_sample(model, blendshapes, newFeatures3D, blendshape_coeffs,[])#newFaceFeatures[63:], [])
 
     warpedIm = warpFace3D(im, mesh, pose, newMesh)
     return warpedIm
 
 def beautifyFace3D2D(im, landmarks, pca, gp, trainX, trainY, method='KNN', exaggeration=0.5):
     mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
-    landmarks3D, features3D = getFaceFeatures3D2DFromMesh(mesh)
+    features3D = np.array(shape_coeffs)
+    landmarks3D, features3D2D = getFaceFeatures3D2DFromMesh(mesh)
 
     if method=='KNN':
-        newFaceFeatures = findBestFeaturesKNN(features3D, pca, gp, trainX, trainY)
+        newFaceFeatures3D2D = findBestFeaturesKNN(features3D2D, pca, gp, trainX, trainY)
     elif method == 'GP':
-        newFaceFeatures = findBestFeaturesOptimisation(features3D, gp)
-    elif method == 'fudge it':
-        newFaceFeatures = findBestFeaturesFudge(features3D)
+        newFaceFeatures3D2D = findBestFeaturesOptimisation(features3D2D, gp)
 
     # construct the landmarks that satisify the distance constraints of the features
-    newLandmarks = calculateLandmarksfromFeatures(landmarks3D, newFaceFeatures)
+    newFeatures3D = calculateFeatures3DfromFeatures3D2D(features3D, newFaceFeatures3D2D)
 
-    newLandmarks2D = projectVertsTo2D(newLandmarks, pose, im)
-    newLandmarks2D = np.array([landmarks[i] if vertIndices[i] == -1 else newLandmarks2D[i] for i in range(len(vertIndices))]).astype(np.int32)
+    newMesh = eos.morphablemodel.draw_sample(model, blendshapes, newFeatures3D, blendshape_coeffs, [])  # newFaceFeatures[63:], [])
 
-    newMesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(newLandmarks2D, im, num_shape_coefficients_to_fit=10)
-
-    old = drawLandmarks(im, landmarks)
-    new = drawLandmarks(im, newLandmarks2D, color=(0,255,255))
-    stuff = drawLandmarks(old, newLandmarks2D, color=(0,255,255))
-    cv2.imshow("old", old)
-    cv2.imshow("new", new)
-    cv2.imshow("oldC", stuff)
-    cv2.waitKey(-1)
-
-    warpedIm = warpFace(im, landmarks, newLandmarks2D)
+    warpedIm = warpFace3D(im, mesh, pose, newMesh)
     return warpedIm
 
 def compareMethods(im, datasets):
@@ -120,8 +99,8 @@ def compareMethods(im, datasets):
     for i, dataset in enumerate(datasets):
         trainX, trainY, pca, gp = dataset
 
-        KNN = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='KNN', exaggeration=1)
-        GP = beautifyFace3D(im, landmarks, pca, gp, trainX, trainY, method='GP', exaggeration=1)
+        KNN = beautifyFace3D2D(im, landmarks, pca, gp, trainX, trainY, method='KNN', exaggeration=1)
+        GP = beautifyFace3D2D(im, landmarks, pca, gp, trainX, trainY, method='GP', exaggeration=1)
 
         displayIm[im.shape[0] * i:im.shape[0] * (i + 1), im.shape[1]:im.shape[1] * 2, :] = KNN
         displayIm[im.shape[0] * i:im.shape[0] * (i + 1), im.shape[1] * 2:im.shape[1] * 3, :] = GP
@@ -157,7 +136,7 @@ if __name__ == "__main__":
     dstFolder = "./results3F/"
 
     datasets = [#loadUS10k(type="3d", gender=GENDER),
-                loadRateMe(type="3d", gender=GENDER)]
+                loadRateMe(type="3d2d", gender=GENDER)]
 
     print("begin beautification")
     import glob
