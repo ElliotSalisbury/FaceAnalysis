@@ -1,77 +1,7 @@
 import numpy as np
 import cv2
 from Beautifier.warpFace import warpFace, warpTriangle
-
-MESH_LANDMARKS_TO_VERTS=np.array([
--1,
--1,
--1,
--1,
--1,
--1,
--1,
--1,
-33,
--1,
--1,
--1,
--1,
--1,
--1,
--1,
--1,
-255,
-229,
-233,
-2086,
-157,
-590,
-2091,
-666,
-662,
-658,
-2842,
-379,
-272,
-114,
-100,
-2794,
-270,
-2797,
-537,
-177,
-172,
-191,
-181,
-173,
-174,
-614,
-624,
-605,
-610,
-607,
-606,
-398,
-315,
-413,
-329,
-825,
-736,
-812,
-841,
-693,
-411,
-264,
-431,
--1,
-416,
-423,
-828,
--1,
-817,
-442,
-404,
-])
+from Beautifier.face3D.faceFeatures3D import landmarks_2_vert_indices
 
 MOUTH_POINTS = list(range(48, 61))
 RIGHT_BROW_POINTS = list(range(17, 22))
@@ -80,7 +10,7 @@ RIGHT_EYE_POINTS = list(range(36, 42))
 LEFT_EYE_POINTS = list(range(42, 48))
 NOSE_POINTS = list(range(27, 35))
 ALL_FACE_LANDMARKS = MOUTH_POINTS + RIGHT_BROW_POINTS + LEFT_BROW_POINTS + RIGHT_EYE_POINTS + LEFT_EYE_POINTS + NOSE_POINTS
-ALL_FACE_MESH_VERTS = MESH_LANDMARKS_TO_VERTS[ALL_FACE_LANDMARKS]
+ALL_FACE_MESH_VERTS = landmarks_2_vert_indices[ALL_FACE_LANDMARKS]
 ALL_FACE_MESH_VERTS = np.delete(ALL_FACE_MESH_VERTS, np.where(ALL_FACE_MESH_VERTS == -1)).tolist()
 
 def project(p, modelview, proj, viewport):

@@ -17,15 +17,15 @@ model_contour = eos.fitting.ModelContour.load(os.path.join(EOS_SHARE_PATH,"model
 model_bfm = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"bfm2009.bin"))
 landmark_mapper_bfm = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug_to_bfm.txt"))
 
-vertIndices = [landmark_mapper.convert(l) for l in landmark_ids]
-vertIndices = [int(i) if i else -1 for i in vertIndices]
+landmarks_2_vert_indices = [landmark_mapper.convert(l) for l in landmark_ids]
+landmarks_2_vert_indices = [int(i) if i else -1 for i in landmarks_2_vert_indices]
 
-newFaceLines = []
+faceLines3D2D = []
 for line in faceLines:
-    if vertIndices[line[0]] == -1 or vertIndices[line[1]] == -1:
+    if landmarks_2_vert_indices[line[0]] == -1 or landmarks_2_vert_indices[line[1]] == -1:
         continue
-    newFaceLines.append(line)
-newFaceLines = np.array(newFaceLines)
+        faceLines3D2D.append(line)
+faceLines3D2D = np.array(faceLines3D2D)
 
 def getMeshFromLandmarks(landmarks, im, num_iterations=50, num_shape_coefficients_to_fit=-1):
     image_width = im.shape[1]
@@ -82,9 +82,9 @@ def getFaceFeatures3D(ims, landmarkss=None, num_iterations=5, num_shape_coeffici
     return shape_coeffs
 
 def getFaceFeatures3D2DFromMesh(mesh):
-    verts = np.array(mesh.vertices)[vertIndices]
+    verts = np.array(mesh.vertices)[landmarks_2_vert_indices]
 
-    faceFeatures = verts[newFaceLines[:, 0]] - verts[newFaceLines[:, 1]]
+    faceFeatures = verts[faceLines3D2D[:, 0]] - verts[faceLines3D2D[:, 1]]
     faceFeatures = np.linalg.norm(faceFeatures, axis=1)
     return verts, faceFeatures
 
