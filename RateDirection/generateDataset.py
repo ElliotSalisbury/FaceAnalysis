@@ -15,14 +15,14 @@ def create_filename(im_i, coeff_deltas):
 if __name__ == "__main__":
     import glob
 
-    srcFolder = r"C:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg"
+    srcFolder = r"E:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images_F\*.jpg"
     dstFolder = "./results/"
 
     with open(os.path.join(dstFolder,'mturk_batch.csv'), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['imageList'])
+        writer.writerow(['filename','shape_coeffs','imageList'])
 
-        max_I = 10
+        max_I = 100
         for i, impath in enumerate(glob.glob(srcFolder)):
             if i >= max_I:
                 break
@@ -32,41 +32,34 @@ if __name__ == "__main__":
             landmarks = getLandmarks(im)
             mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=300)
 
-            coeff_deltas = np.linspace(-1, 1, 3)
-            n_coeffs = 2
+            coeff_deltas = [(0,-1),
+                            (0,1),
+                            (-1,0),
+                            (1,0),
+                            (-1,-1),
+                            (1,1),
+                            (-1,1),
+                            (1,-1),]
 
-            for coeff_delta_vec in itertools.product(coeff_deltas, repeat=n_coeffs):
+            for coeff_delta_vec in coeff_deltas:
                 print(coeff_delta_vec)
 
-                coeff_delta_vec = np.array(coeff_delta_vec)
                 new_coeffs = shape_coeffs.copy()
-                new_coeffs[:coeff_delta_vec.shape[0]] += coeff_delta_vec
+                new_coeffs[:2] += np.array(coeff_delta_vec)
 
                 newMesh = eos.morphablemodel.draw_sample(model, blendshapes, new_coeffs, blendshape_coeffs, [])
 
                 warpedIm = warpFace3D(im, mesh, pose, newMesh, accurate=True)
                 cv2.imshow("warped", warpedIm)
-                outFile = os.path.join(dstFolder, "{}.jpg".format(coeff_delta_vec))
+                outFile = os.path.join(dstFolder, create_filename(i, coeff_delta_vec))
                 cv2.imwrite(outFile, warpedIm)
                 cv2.waitKey(1)
 
             url = "https://crowdrobotics.org/static/img/mturk/pilot/"
             mturk_experiments = []
-            for coeff_0 in coeff_deltas:
-                images = []
-                for coeff_1 in coeff_deltas:
-                    coeff_delta_vec = np.array([coeff_0, coeff_1])
-                    outFile = url+create_filename(i, coeff_delta_vec)
-                    images.append(outFile)
-                mturk_experiments.append(images)
+            faceList = []
+            for coeff_delta_vec in coeff_deltas:
+                outFile = url+create_filename(i, coeff_delta_vec)
+                faceList.append(outFile)
 
-            for coeff_1 in coeff_deltas:
-                images = []
-                for coeff_0 in coeff_deltas:
-                    coeff_delta_vec = np.array([coeff_0, coeff_1])
-                    outFile = url+create_filename(i, coeff_delta_vec)
-                    images.append(outFile)
-                mturk_experiments.append(images)
-
-            for exp in mturk_experiments:
-                writer.writerow([json.dumps(exp)])
+            writer.writerow([filename, json.dumps(shape_coeffs), json.dumps(faceList)])

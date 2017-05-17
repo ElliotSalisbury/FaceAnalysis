@@ -1,0 +1,120 @@
+<!-- Bootstrap v3.0.3 -->
+<link href="https://s3.amazonaws.com/mturk-public/bs30/css/bootstrap.min.css" rel="stylesheet" />
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+<section class="container" id="Other" style="margin-bottom:15px; padding: 10px 10px; font-family: Verdana, Geneva, sans-serif; color:#333333; font-size:0.9em;">
+<div class="row col-xs-12 col-md-12"><!-- Instructions -->
+<div class="panel panel-primary">
+<div class="panel-heading"><strong>Instructions</strong></div>
+
+<div class="panel-body">
+<p>You are going to be shown some digitally altered faces, and decide which face is the most attractive.</p>
+<p>You must click on the image of the face to swap between two digitally altered forms.</br>
+You can swap between the two images as many times as you like, just keep clicking.</br>
+Keep swapping until you have decided which is the most attractive version.</p>
+<p>When you have decided, you must leave the face image on the most attractive face, and click the Next button.</p>
+<p>Repeat this process for 3 sets of faces, then submit.</p>
+</div>
+</div>
+<!-- End Instructions --><!-- Content Body -->
+
+<section>
+
+<div class="row">
+	<div class="col-xs-3">
+	</div>
+	<div class="col-xs-6">
+		<img id="im1" class="img-responsive" src="">
+	</div>
+</div>
+<div class="row">
+	<div class="col-xs-offset-3 col-xs-6">
+		<button type="button" class="btn btn-primary" id="next">This is the most attractive face.<br>Next!</button>
+	</div>
+</div>
+<input id="chosenFaces" type="hidden" name="chosenFaces" value="">
+<input id="stages" type="hidden" name="stages" value="">
+<input id="swapCounts" type="hidden" name="swapCounts" value="">
+</section>
+<!-- End Content Body --></div>
+</section>
+<!-- close container -->
+<style type="text/css">
+</style>
+<script>
+	var nextIm = "https://crowdrobotics.org/static/img/mturk/pilot/start-here.png";
+	
+	var faceList = ${imageList};
+		//["https://crowdrobotics.org/static/img/mturk/pilot/0_0_-1.jpg",
+		//"https://crowdrobotics.org/static/img/mturk/pilot/0_0_1.jpg",
+		//"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_0.jpg",
+		//"https://crowdrobotics.org/static/img/mturk/pilot/0_1_0.jpg",
+		//"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_-1.jpg",
+		//"https://crowdrobotics.org/static/img/mturk/pilot/0_1_1.jpg",
+		//"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_1.jpg",
+		//"https://crowdrobotics.org/static/img/mturk/pilot/0_1_-1.jpg"];
+		
+	var stage = 0;
+	
+	var currentFaceIndex = Math.floor((Math.random() * 2));
+	
+	var swapCount = 0;
+	
+	var chosenFaces = [];
+	var stages = [];
+	var swapCounts = [];
+
+	$(function() {
+		$("#submitButton").prop('disabled', true);
+		$("#next").prop('disabled', true);
+		
+		$("#im1").attr("src", nextIm);
+		
+		$("#im1").click(function(){
+			currentFaceIndex = (currentFaceIndex + 1) % 2;
+			$("#im1").attr("src", faceList[currentFaceIndex + stage]);
+			
+			swapCount += 1;
+			
+			if (swapCount > 2) {
+				$("#next").prop('disabled', false);
+			}
+		});
+		
+		$("#next").click(function(){
+			chosenFaces.push(currentFaceIndex);
+			stages.push(stage);
+			swapCounts.push(swapCount);
+			
+			swapCount = 0;
+			$("#next").prop('disabled', true);
+			
+			if (stage == 0) {
+				currentFaceIndex = Math.floor((Math.random() * 2));
+				stage = 2;
+				
+				$("#im1").attr("src", nextIm);
+			} else if (stage == 2) {
+				if(chosenFaces[0] == chosenFaces[1]) {
+					console.log("00-11");
+					stage = 4;
+				} else {
+					console.log("01-10");
+					stage = 6;
+				}
+				
+				$("#im1").attr("src", nextIm);
+			} else if (stage > 2) {
+				console.log("done");
+				$("#next").prop('disabled', true);
+				$("#next").text("Thanks, please submit");
+				$("#submitButton").prop('disabled', false);
+				$("#im1").attr("src", "");
+				$("#im1").click(function(){});
+				
+				$("#chosenFaces").val(chosenFaces);
+				$("#stages").val(stages);
+				$("#swapCounts").val(swapCounts);
+			}
+		});
+	});
+</script>
