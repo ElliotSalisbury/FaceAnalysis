@@ -27,7 +27,7 @@ def trainGP(df, dstPath, trainPercentage=0.9, featureset="facefeatures", train_o
             trainX = trainX[:, 0:99]
             testX = testX[:, 0:99]
 
-        if generate_PCA:
+        if generate_PCA or train_on_PCA:
             pca = fitPCA(trainX)
             if train_on_PCA:
                 trainX = pca.transform(trainX)
