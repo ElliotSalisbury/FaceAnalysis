@@ -22,8 +22,8 @@ def readMturkResults(filepath):
 
             workerId = row[14]
             imagelist = row[27]
-            leastIndex = row[28]
-            mostIndex = row[29]
+            leastIndex = int(row[28])
+            mostIndex = int(row[29])
 
             imagelist = json.loads(imagelist)
             imagelist = [os.path.basename(impath).replace(".jpg","") for impath in imagelist]
@@ -63,7 +63,7 @@ def calculate_concensus(results):
 
 if __name__ == "__main__":
 
-    mturkResults = r"C:\Drive\FaceAnalysis\Batch_2801527_batch_results.csv"
+    mturkResults = r"E:\Drive\FaceAnalysis\Batch_2801527_batch_results.csv"
     results = readMturkResults(mturkResults)
 
     calculate_concensus(results)
@@ -76,13 +76,17 @@ if __name__ == "__main__":
     plt.xlim((-3, 3))
     plt.ylim((-3, 3))
 
-    vectors = []
+    women_is = [1,2,6,8,9,10]
 
+    vectors = []
     max_I = 10
-    srcFolder = r"C:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg"
+    srcFolder = r"E:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg"
     for personId, impath in enumerate(glob.glob(srcFolder)):
         if personId >= max_I:
             break
+        if personId not in women_is:
+            continue
+
         im = cv2.imread(impath)
         filename = os.path.basename(impath)
 
@@ -92,22 +96,42 @@ if __name__ == "__main__":
         pResults = results[personId]
         origPoint = shape_coeffs[:2]
 
+        # plt.plot(origPoint[0], origPoint[1], 'ro')
+        just_main_coeffs = [((0,-1),(0,0),(0,1)), ((-1,0),(0,0),(1,0))]
         vector = np.zeros(2)
-
-        plt.plot(origPoint[0], origPoint[1], 'ro')
-        for coeffs in [((0, -1), (0, 0), (0, 1)),((-1, 0), (0, 0), (1, 0))]:#pResults:
-            coeff_delta = pResults[coeffs]
+        for coeff_i, coeffs in enumerate(just_main_coeffs):#pResults:
+            ranking = pResults[coeffs]
 
             scale=0.3
             origPoints = (np.array(coeffs)*scale) + origPoint
 
-            startP = origPoints[coeff_delta[0],:]
-            endP = origPoints[coeff_delta[1],:]
-            dP = endP - startP
+            notranked = set([0,1,2]).difference(ranking)
+            myvar = [0,0,0]
+            myvar[0] = ranking[0]
+            myvar[1] = list(notranked)[0]
+            myvar[2] = ranking[1]
 
-            vector += dP
 
-            plt.arrow(startP[0], startP[1], dP[0], dP[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
+            ax = plt.gca()
+            for arrow_i in range(2):
+                startP = origPoints[myvar[arrow_i],:]
+                endP = origPoints[myvar[arrow_i + 1], :]
+                if abs(myvar[arrow_i+1] - myvar[arrow_i]) == 2:
+                    if arrow_i == 0:
+                        endP = origPoints[1, :]
+                    else:
+                        startP = origPoints[1,:]
+
+                dP = (endP - startP) * 0.9
+                vector += dP
+
+                arrowstyle = '->'
+                if arrow_i == 1:
+                    ax.annotate("", xy=startP+dP, xytext=startP, arrowprops=dict(arrowstyle=arrowstyle))
+                ax.annotate("", xy=endP, xytext=startP, arrowprops=dict(arrowstyle=arrowstyle))
+
+        vector = (vector / np.linalg.norm(vector)) * scale
+        ax.annotate("", xy=origPoint+vector, xytext=origPoint, arrowprops=dict(arrowstyle=arrowstyle, color='r'), color='r')
 
         vectors.append((origPoint, vector))
 
