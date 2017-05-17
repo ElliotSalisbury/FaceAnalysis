@@ -76,6 +76,8 @@ if __name__ == "__main__":
     plt.xlim((-3, 3))
     plt.ylim((-3, 3))
 
+    vectors = []
+
     max_I = 10
     srcFolder = r"C:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg"
     for personId, impath in enumerate(glob.glob(srcFolder)):
@@ -88,10 +90,12 @@ if __name__ == "__main__":
         mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=300)
 
         pResults = results[personId]
-        origPoint = blendshape_coeffs[:2]
+        origPoint = shape_coeffs[:2]
+
+        vector = np.zeros(2)
 
         plt.plot(origPoint[0], origPoint[1], 'ro')
-        for coeffs in [((-1, 0), (0, 0), (1, 0)), ((0, -1), (0, 0), (0, 1))]:#pResults:
+        for coeffs in [((0, -1), (0, 0), (0, 1)),((-1, 0), (0, 0), (1, 0))]:#pResults:
             coeff_delta = pResults[coeffs]
 
             scale=0.3
@@ -101,6 +105,44 @@ if __name__ == "__main__":
             endP = origPoints[coeff_delta[1],:]
             dP = endP - startP
 
+            vector += dP
+
             plt.arrow(startP[0], startP[1], dP[0], dP[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
+
+        vectors.append((origPoint, vector))
+
+    # plt.show()
+    num_arrows = 40
+    X, Y = np.meshgrid(np.linspace(-1.5, 1.5, num_arrows), np.linspace(-1.5, 1.5, num_arrows))
+    U = np.zeros_like(X)
+    V = np.zeros_like(Y)
+
+    P = 6
+
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+
+            p = np.array((X[i][j], Y[i][j]))
+
+            numerator = np.zeros_like(p)
+            denominator = 0
+            for influence in vectors:
+                squared_distance = np.sum(np.square(p - influence[0]))
+                divisor = np.power(squared_distance, P/2)
+
+                numerator += influence[1] / divisor
+                denominator += 1/divisor
+
+
+            v = numerator/denominator
+
+            U[i][j] = v[0]
+            V[i][j] = v[1]
+
+    plt.figure()
+    plt.title('Arrows scale with plot width, not view')
+    Q = plt.quiver(X, Y, U, V, units='width')
+    qk = plt.quiverkey(Q, 0.9, 0.9, 2, r'$2 \frac{m}{s}$', labelpos='E',
+                       coordinates='figure')
 
     plt.show()
