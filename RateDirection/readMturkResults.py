@@ -130,7 +130,7 @@ if __name__ == "__main__":
                     ax.annotate("", xy=startP+dP, xytext=startP, arrowprops=dict(arrowstyle=arrowstyle))
                 ax.annotate("", xy=endP, xytext=startP, arrowprops=dict(arrowstyle=arrowstyle))
 
-        vector = (vector / np.linalg.norm(vector)) * scale
+        # vector = (vector / np.linalg.norm(vector)) * scale
         ax.annotate("", xy=origPoint+vector, xytext=origPoint, arrowprops=dict(arrowstyle=arrowstyle, color='r'), color='r')
 
         vectors.append((origPoint, vector))
