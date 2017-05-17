@@ -1,36 +1,43 @@
 import os
 import numpy as np
-import caffe
 import cv2
 import Beautifier.faceCNN.utils as utils
 from Beautifier.faceFeatures import getLandmarks
 
-os.environ['GLOG_minloglevel'] = '2'
-
 # CNN network spec
 deploy_path = os.path.join(os.environ['CNN_PATH'], 'CNN/deploy_network.prototxt')
-model_path  = os.path.join(os.environ['CNN_PATH'], 'CNN/3dmm_cnn_resnet_101.caffemodel')
+model_path = os.path.join(os.environ['CNN_PATH'], 'CNN/3dmm_cnn_resnet_101.caffemodel')
 mean_path = os.path.join(os.environ['CNN_PATH'], 'CNN/mean.binaryproto')
-layer_name      = 'fc_ftnew'
+layer_name = 'fc_ftnew'
 ## Modifed Basel Face Model
 BFM_path = os.path.join(os.environ['CNN_PATH'], 'BaselFaceModel_mod.mat')
 ## CNN template size
 trg_size = 224
+NET = None
+TRANSFORMER = None
 
-caffe.set_mode_cpu()
-## Opening mean average image
-proto_data = open(mean_path, "rb").read()
-a = caffe.io.caffe_pb2.BlobProto.FromString(proto_data)
-mean = caffe.io.blobproto_to_array(a)[0]
-## Loading the CNN
-net = caffe.Classifier(deploy_path, model_path)
-## Setting up the right transformer for an input image
-transformer = caffe.io.Transformer({'data': net.blobs['data'].data.shape})
-transformer.set_transpose('data', (2,0,1))
-transformer.set_channel_swap('data', (2,1,0))
-transformer.set_raw_scale('data', 255.0)
-transformer.set_mean('data',mean)
-print('> CNN Model loaded to regress 3D Shape and Texture!')
+def getNet():
+    global TRANSFORMER, NET
+    if TRANSFORMER is None or NET is None:
+        import caffe
+
+        os.environ['GLOG_minloglevel'] = '2'
+
+        caffe.set_mode_cpu()
+        ## Opening mean average image
+        proto_data = open(mean_path, "rb").read()
+        a = caffe.io.caffe_pb2.BlobProto.FromString(proto_data)
+        mean = caffe.io.blobproto_to_array(a)[0]
+        ## Loading the CNN
+        NET = caffe.Classifier(deploy_path, model_path)
+        ## Setting up the right transformer for an input image
+        TRANSFORMER = caffe.io.Transformer({'data': net.blobs['data'].data.shape})
+        TRANSFORMER.set_transpose('data', (2, 0, 1))
+        TRANSFORMER.set_channel_swap('data', (2, 1, 0))
+        TRANSFORMER.set_raw_scale('data', 255.0)
+        TRANSFORMER.set_mean('data', mean)
+        print('> CNN Model loaded to regress 3D Shape and Texture!')
+    return TRANSFORMER, NET
 
 def preprocessIm(im, landmarks):
     lms_x = landmarks[:,0]
@@ -42,6 +49,8 @@ def preprocessIm(im, landmarks):
     return resized.astype(np.float32) / 255
 
 def feedImToNet(im):
+    transformer, net = getNet()
+
     ## Transforming the image into the right format
     net.blobs['data'].data[...] = transformer.preprocess('data', im)
     ## Forward pass into the CNN
@@ -94,7 +103,6 @@ if __name__ == "__main__":
     for i, impath in enumerate(glob.glob(r"E:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg")):
         print(i)
         im = cv2.imread(impath)
-        im2 = caffe.io.load_image(impath)
         filename = os.path.basename(impath)
 
         features = getFaceFeaturesCNN([im])
