@@ -44,6 +44,42 @@ def readMturkResults(filepath):
             results_person_coeffs[personId][all_coeffs].append((leastIndex, mostIndex))
     return results_person_coeffs
 
+def readMturkResults2(filepath):
+    results_by_image = {}
+    shape_coeffs_by_image = {}
+
+    with open(filepath, 'r', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+
+        for i, row in enumerate(reader):
+            if i == 0:
+                continue
+
+            workerId = row[15]
+            filename = row[27]
+            shape_coeffs = json.loads(row[28])
+            imagelist = json.loads(row[29])
+            chosenFaces = np.array(row[30].split(","), dtype=np.int32)
+            stages = np.array(row[31].split(","), dtype=np.int32)
+            swapCount = row[32]
+
+            imagelist = [os.path.basename(impath).replace(".jpg", "") for impath in imagelist]
+
+            all_coeffs = []
+            for imagename in imagelist:
+                personId, *coeffs = imagename.split("_")
+                personId = int(personId)
+                coeffs = [int(coeff) for coeff in coeffs]
+                all_coeffs.append(tuple(coeffs))
+            all_coeffs = tuple(all_coeffs)
+
+            if filename not in results_by_image:
+                results_by_image[filename] = []
+
+            results_by_image[filename].append((workerId, chosenFaces, stages, swapCount, all_coeffs))
+            shape_coeffs_by_image[filename] = shape_coeffs
+    return results_by_image, shape_coeffs_by_image
+
 def calculate_concensus(results):
     for personId in results:
         for coeffs in results[personId]:
@@ -61,12 +97,43 @@ def calculate_concensus(results):
 
             results[personId][coeffs] = concensus
 
+def calculate_concensus2(results_by_image):
+    vector_by_image = {}
+    all_contradictions = {}
+    for filename in results_by_image:
+        votes = results_by_image[filename]
+
+        avg_vector = np.zeros(2)
+        contradictions = []
+        for vote in votes:
+            chosenFaces = vote[1]
+            stages = vote[2]
+
+            vector = (chosenFaces * 2) - 1
+            vector = vector[:2]
+
+            avg_vector += vector
+
+            if chosenFaces[0] != chosenFaces[2]:
+                contradictions.append(vote)
+
+        avg_vector /= len(votes)
+
+        vector_by_image[filename] = avg_vector
+        all_contradictions[filename] = contradictions
+
+        print("{}: {}/{}".format(filename, len(contradictions),len(votes)))
+
+    return vector_by_image
+
 if __name__ == "__main__":
 
-    mturkResults = r"E:\Drive\FaceAnalysis\Batch_2801527_batch_results.csv"
-    results = readMturkResults(mturkResults)
+    # mturkResults = r"E:\Drive\FaceAnalysis\Batch_2801527_batch_results.csv"
+    mturkResults = r"E:\Drive\FaceAnalysis\Batch_2806769_batch_results.csv"
 
-    calculate_concensus(results)
+    results_by_image, shape_coeffs_by_image = readMturkResults2(mturkResults)
+
+    vector_by_image = calculate_concensus2(results_by_image)
 
     plt.figure(1)
     plt.title('coeffs')
@@ -76,62 +143,14 @@ if __name__ == "__main__":
     plt.xlim((-3, 3))
     plt.ylim((-3, 3))
 
-    women_is = [1,2,6,8,9,10]
-
     vectors = []
-    max_I = 10
-    srcFolder = r"E:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg"
-    for personId, impath in enumerate(glob.glob(srcFolder)):
-        if personId >= max_I:
-            break
-        if personId not in women_is:
-            continue
+    for filename in vector_by_image:
+        shape_coeffs = shape_coeffs_by_image[filename]
+        vector = vector_by_image[filename]
 
-        im = cv2.imread(impath)
-        filename = os.path.basename(impath)
-
-        landmarks = getLandmarks(im)
-        mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=300)
-
-        pResults = results[personId]
         origPoint = shape_coeffs[:2]
 
-        # plt.plot(origPoint[0], origPoint[1], 'ro')
-        just_main_coeffs = [((0,-1),(0,0),(0,1)), ((-1,0),(0,0),(1,0))]
-        vector = np.zeros(2)
-        for coeff_i, coeffs in enumerate(just_main_coeffs):#pResults:
-            ranking = pResults[coeffs]
-
-            scale=0.3
-            origPoints = (np.array(coeffs)*scale) + origPoint
-
-            notranked = set([0,1,2]).difference(ranking)
-            myvar = [0,0,0]
-            myvar[0] = ranking[0]
-            myvar[1] = list(notranked)[0]
-            myvar[2] = ranking[1]
-
-
-            ax = plt.gca()
-            for arrow_i in range(2):
-                startP = origPoints[myvar[arrow_i],:]
-                endP = origPoints[myvar[arrow_i + 1], :]
-                if abs(myvar[arrow_i+1] - myvar[arrow_i]) == 2:
-                    if arrow_i == 0:
-                        endP = origPoints[1, :]
-                    else:
-                        startP = origPoints[1,:]
-
-                dP = (endP - startP) * 0.9
-                vector += dP
-
-                arrowstyle = '->'
-                if arrow_i == 1:
-                    ax.annotate("", xy=startP+dP, xytext=startP, arrowprops=dict(arrowstyle=arrowstyle))
-                ax.annotate("", xy=endP, xytext=startP, arrowprops=dict(arrowstyle=arrowstyle))
-
-        # vector = (vector / np.linalg.norm(vector)) * scale
-        ax.annotate("", xy=origPoint+vector, xytext=origPoint, arrowprops=dict(arrowstyle=arrowstyle, color='r'), color='r')
+        plt.gca().annotate("", xy=origPoint+vector, xytext=origPoint, arrowprops=dict(arrowstyle="->", color='r'), color='r')
 
         vectors.append((origPoint, vector))
 
