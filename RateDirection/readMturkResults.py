@@ -116,20 +116,25 @@ if __name__ == "__main__":
     X, Y = np.meshgrid(np.linspace(-1.5, 1.5, num_arrows), np.linspace(-1.5, 1.5, num_arrows))
     U = np.zeros_like(X)
     V = np.zeros_like(Y)
+
+    P = 6
+
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
-            v = np.zeros(2)
 
             p = np.array((X[i][j], Y[i][j]))
 
+            numerator = np.zeros_like(p)
+            denominator = 0
             for influence in vectors:
-                distance = np.linalg.norm(p - influence[0])
+                squared_distance = np.sum(np.square(p - influence[0]))
+                divisor = np.power(squared_distance, P/2)
 
-                v += influence[1] / np.square(distance)
+                numerator += influence[1] / divisor
+                denominator += 1/divisor
 
-            vlen = np.linalg.norm(v)
-            if vlen > 1:
-                v /= vlen
+
+            v = numerator/denominator
 
             U[i][j] = v[0]
             V[i][j] = v[1]
