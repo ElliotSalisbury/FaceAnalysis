@@ -31,12 +31,7 @@ def getMeshFromLandmarks(landmarks, im, num_iterations=50, num_shape_coefficient
     image_width = im.shape[1]
     image_height = im.shape[0]
 
-    (meshs, poses, shape_coeffs, blendshape_coeffss) = eos.fitting.fit_shape_and_pose(model, blendshapes,
-                                                                                   [landmarks], landmark_ids,
-                                                                                   landmark_mapper,
-                                                                                   [image_width], [image_height],
-                                                                                   edge_topology, contour_landmarks,
-                                                                                   model_contour,
+    (meshs, poses, shape_coeffs, blendshape_coeffss) = getMeshFromMultiLandmarks_IWH([landmarks], [image_width], [image_height],
                                                                                    num_iterations=num_iterations,
                                                                                    num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
     return meshs[0], poses[0], shape_coeffs, blendshape_coeffss[0]
@@ -81,16 +76,19 @@ def getFaceFeatures3D(ims, landmarkss=None, num_iterations=5, num_shape_coeffici
 
     return shape_coeffs
 
+def getFaceFeatures3D2DFromShapeCoeffs(shape_coeffs):
+    return getFaceFeatures3D2DFromMesh(getMeshFromShapeCeoffs(shape_coeffs))
 def getFaceFeatures3D2DFromMesh(mesh):
     verts = np.array(mesh.vertices)[landmarks_2_vert_indices]
 
     faceFeatures = verts[faceLines3D2D[:, 0]] - verts[faceLines3D2D[:, 1]]
     faceFeatures = np.linalg.norm(faceFeatures, axis=1)
-    return verts, faceFeatures
+    return faceFeatures
 
 def createTextureMap(mesh, pose, im):
     return eos.render.extract_texture(mesh, pose, im)
-
+def getMeshFromShapeCeoffs(shape_coeffs=[], blendshape_coeffs=[]):
+    return eos.morphablemodel.draw_sample(model, blendshapes, shape_coeffs, blendshape_coeffs, [])
 
 def exportMeshToJSON(mesh):
     verts = np.array(mesh.vertices)[:,0:3].flatten().tolist()

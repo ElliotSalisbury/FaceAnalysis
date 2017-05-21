@@ -9,6 +9,7 @@ from Beautifier.face3D.faceFeatures3D import getMeshFromMultiLandmarks
 from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
 import numpy as np
 import math
+import scipy.stats
 
 MAX_IM_SIZE = 512
 
@@ -60,9 +61,12 @@ def saveFacialFeatures(combinedcsvpath):
 
         comments = [(ratingAuthor[k], ratingPostedUTC[k], ratings[k], ratingDecimal[k], ratingText[k]) for k in range(len(ratings))]
 
-        cleanedRatings = [ratings[k] for k in range(len(ratings)) if not math.isnan(ratings[k])]
-        cleanedRatings = reject_outliers(np.array(cleanedRatings))
-        attractiveness = np.mean(cleanedRatings)
+        nonEmptyRatings = [ratings[k] for k in range(len(ratings)) if not math.isnan(ratings[k])]
+        _, attractiveness_mean, attractiveness_std = scipy.stats.t.fit(nonEmptyRatings)
+
+        # cleanedRatings = reject_outliers(np.array(nonEmptyRatings))
+        # attractiveness_mean = np.mean(cleanedRatings)
+        # attractiveness_std = np.std(cleanedRatings)
 
         #get the image files:
         types = ('*.jpg', '*.png', '*.bmp')
@@ -105,7 +109,7 @@ def saveFacialFeatures(combinedcsvpath):
 
             dataDict = {"submissionId":submissionId, "submissionCreatedUTC":submissionCreatedUTC, "gender": submissionGender, "age": submissionAge,
                         "comments": comments,
-                        "attractiveness": attractiveness,
+                        "ratings":nonEmptyRatings, "attractiveness": attractiveness_mean, "attractiveness_std": attractiveness_std,
                         "numUsableImages": len(ims), "numSubmittedImages": len(impaths), "numBodyShots":numBodyShots, "numBuddyShots":numBuddyShots,
                         "impaths": usedImPaths,
                         "landmarkss": landmarkss, "facefeaturess": faceFeaturess,
@@ -126,8 +130,7 @@ def saveFacialFeatures(combinedcsvpath):
     return allDataDF
 
 def dataFrameTo2D(df):
-    import eos
-    from Beautifier.face3D.faceFeatures3D import model, blendshapes, getFaceFeatures3D2DFromMesh
+    from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D2DFromShapeCoeffs
     allData = []
     for index, row in df.iterrows():
         print("converting index {}/{} to a 2d dataframe".format(index, len(df)))
@@ -148,12 +151,8 @@ def dataFrameTo2D(df):
             pose = poses[i]
             blendshape_coeffs = blendshape_coeffss[i]
 
-            # mesh = eos.morphablemodel.draw_sample(model, blendshapes, facefeatures3D, blendshape_coeffs, [])
-            mesh = eos.morphablemodel.draw_sample(model, blendshapes, facefeatures3D, [], [])
-            landmarks3D, facefeatures3D2D = getFaceFeatures3D2DFromMesh(mesh)
-
             dataDict = {"gender": gender, "attractiveness": attractiveness,
-                        "landmarks": landmarks, "facefeatures": facefeatures, "landmarks3D":landmarks3D, "facefeatures3D2D": facefeatures3D2D,
+                        "landmarks": landmarks, "facefeatures": facefeatures,
                         "facefeatures3D": facefeatures3D, "pose":pose, "blendshape_coeffs": blendshape_coeffs,
                         "impath": impath}
             allData.append(dataDict)
@@ -215,6 +214,8 @@ def saveServerOptimised():
                 pickle.dump(loadRateMe(type=type, gender=gender), file)
 
 if __name__ == "__main__":
+    from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D2DFromShapeCoeffs
+
     rateMeFolder = "E:\\Facedata\\RateMe"
     combinedPath = os.path.join(rateMeFolder, "combined.csv")
 
@@ -224,12 +225,10 @@ if __name__ == "__main__":
     # df2d = dataFrameTo2D(df)
     df2d = loadRateMeFacialFeatures(type='2d')
 
-    trainGP(df2d, os.path.join(scriptFolder, "2d"), trainPercentage=0.9, train_on_PCA=False, generate_PCA=True)
-    trainGP(df2d, os.path.join(scriptFolder, "3d2d"), trainPercentage=0.9, featureset="facefeatures3D2D", train_on_PCA=False, generate_PCA=True)
+    trainGP(df2d, os.path.join(scriptFolder, "2d"), train_on_PCA=False, generate_PCA=True)
 
-    moreaccurate = df[df["numUsableImages"]>=1]
-    trainGP(moreaccurate, os.path.join(scriptFolder, "3d"), trainPercentage=0.9, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
+    trainGP(df, os.path.join(scriptFolder, "3d"), featureset="facefeatures3D", train_on_PCA=True, generate_PCA=True, transformer_func=getFaceFeatures3D2DFromShapeCoeffs)
 
-    trainGP(df, os.path.join(scriptFolder, "cnn"), trainPercentage=0.9, featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
+    trainGP(df, os.path.join(scriptFolder, "cnn"), featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
 
     saveServerOptimised()
