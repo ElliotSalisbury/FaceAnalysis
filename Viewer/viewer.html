@@ -42,7 +42,7 @@
         bfm = data;
         var verts = meshFromFeatures(bfm, [1,0,0,0,0]);
 
-        drawLandmarks(verts, indexs);
+        updatemesh();
     }
 
     function meshFromFeatures(model, features) {
@@ -63,12 +63,42 @@
         return verts;
     }
 
-    function drawLandmarks(verts, indexs) {
+    function quickMeshFromFeatures(model, indexs, features) {
+        var alpha = [];
+        for(var i=0; i<99; i++) {
+            var feature = 0;
+            if(i in features) {
+                feature = features[i]
+            }
+            alpha[i] = model.shapeEV[i] * feature;
+        }
+        alpha = math.matrix(alpha);
+
+        var quickPC = [];
+        var quickMU = [];
+        for (var i in indexs) {
+            var index = indexs[i]*3;
+            quickPC.push(model.shapePC[index]);
+            quickPC.push(model.shapePC[index+1]);
+            quickPC.push(model.shapePC[index+2]);
+
+            quickMU.push(model.shapeMU[index]);
+            quickMU.push(model.shapeMU[index+1]);
+            quickMU.push(model.shapeMU[index+2]);
+        }
+        var shape = math.multiply(quickPC, alpha);
+        shape = math.add(quickMU, shape);
+        var numVert = parseInt(shape._size[0]/3);
+        var verts = shape.reshape([numVert,3]);
+
+        return verts;
+    }
+
+    function drawLandmarks(landmarks) {
         ctx.drawImage(origImage, 0, 0, origImage.width, origImage.height);
 
-        var verts = verts.valueOf();
-        for (i in indexs) {
-            var vert = verts[indexs[i]];
+        for (i in landmarks) {
+            var vert = landmarks[i];
             var vert4 = [vert[0], vert[1], vert[2], 1];
             var vert2d = project(vert4, modelview, projection, viewport).valueOf();
 
@@ -140,9 +170,9 @@
 
     function updatemesh() {
         //recalculate mesh
-        var verts = meshFromFeatures(bfm, [parseFloat($("#coeff0").val()), parseFloat($("#coeff1").val())]);
+        var verts = quickMeshFromFeatures(bfm, indexs, [parseFloat($("#coeff0").val()), parseFloat($("#coeff1").val())]);
         //draw landmarks
-        drawLandmarks(verts, indexs);
+        drawLandmarks(verts.valueOf(), indexs);
     }
 
 </script>
