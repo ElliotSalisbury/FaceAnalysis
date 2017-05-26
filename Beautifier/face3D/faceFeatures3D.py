@@ -14,11 +14,14 @@ edge_topology = eos.morphablemodel.load_edge_topology(os.path.join(EOS_SHARE_PAT
 contour_landmarks = eos.fitting.ContourLandmarks.load(os.path.join(EOS_SHARE_PATH,"ibug2did.txt"))
 model_contour = eos.fitting.ModelContour.load(os.path.join(EOS_SHARE_PATH,"model_contours.json"))
 
-model_bfm = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"bfm2009.bin"))
-landmark_mapper_bfm = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug_to_bfm.txt"))
-
 landmarks_2_vert_indices = [landmark_mapper.convert(l) for l in landmark_ids]
 landmarks_2_vert_indices = np.array([int(i) if i else -1 for i in landmarks_2_vert_indices])
+
+
+model_bfm = eos.morphablemodel.load_model(os.path.join(EOS_SHARE_PATH,"bfm2009.bin"))
+landmark_mapper_bfm = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug_to_bfm.txt"))
+landmarks_2_vert_indices_bfm = [landmark_mapper_bfm.convert(l) for l in landmark_ids]
+landmarks_2_vert_indices_bfm = np.array([int(i) if i else -1 for i in landmarks_2_vert_indices_bfm])
 
 faceLines3D2D = []
 for line in faceLines:
@@ -27,25 +30,30 @@ for line in faceLines:
     faceLines3D2D.append(line)
 faceLines3D2D = np.array(faceLines3D2D)
 
-def getMeshFromLandmarks(landmarks, im, num_iterations=50, num_shape_coefficients_to_fit=-1):
+def getMeshFromLandmarks(landmarks, im, num_iterations=50, num_shape_coefficients_to_fit=-1, shape_coeffs_guess=[], blendshape_coeffs_guess=[]):
     image_width = im.shape[1]
     image_height = im.shape[0]
 
+    if blendshape_coeffs_guess:
+        blendshape_coeffs_guess = [blendshape_coeffs_guess]
+
     (meshs, poses, shape_coeffs, blendshape_coeffss) = getMeshFromMultiLandmarks_IWH([landmarks], [image_width], [image_height],
                                                                                    num_iterations=num_iterations,
-                                                                                   num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
+                                                                                   num_shape_coefficients_to_fit=num_shape_coefficients_to_fit,
+                                                                                   shape_coeffs_guess=shape_coeffs_guess,
+                                                                                   blendshape_coeffs_guess=blendshape_coeffs_guess)
     return meshs[0], poses[0], shape_coeffs, blendshape_coeffss[0]
 
-def getMeshFromMultiLandmarks(landmarkss, ims, num_iterations=5, num_shape_coefficients_to_fit=-1):
+def getMeshFromMultiLandmarks(landmarkss, ims, num_iterations=5, num_shape_coefficients_to_fit=-1, shape_coeffs_guess=[], blendshape_coeffs_guess=[]):
     image_widths = []
     image_heights = []
     for im in ims:
         image_widths.append(im.shape[1])
         image_heights.append(im.shape[0])
 
-    return getMeshFromMultiLandmarks_IWH(landmarkss, image_widths, image_heights, num_iterations=num_iterations, num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
+    return getMeshFromMultiLandmarks_IWH(landmarkss, image_widths, image_heights, num_iterations=num_iterations, num_shape_coefficients_to_fit=num_shape_coefficients_to_fit, shape_coeffs_guess=shape_coeffs_guess, blendshape_coeffs_guess=blendshape_coeffs_guess)
 
-def getMeshFromMultiLandmarks_IWH(landmarkss, image_widths, image_heights, num_iterations=5, num_shape_coefficients_to_fit=-1):
+def getMeshFromMultiLandmarks_IWH(landmarkss, image_widths, image_heights, num_iterations=5, num_shape_coefficients_to_fit=-1, shape_coeffs_guess=[], blendshape_coeffs_guess=[]):
     (meshs, poses, shape_coeffs, blendshape_coeffss) = eos.fitting.fit_shape_and_pose(model, blendshapes,
                                                                                    landmarkss, landmark_ids,
                                                                                    landmark_mapper,
@@ -53,7 +61,9 @@ def getMeshFromMultiLandmarks_IWH(landmarkss, image_widths, image_heights, num_i
                                                                                    edge_topology, contour_landmarks,
                                                                                    model_contour,
                                                                                    num_iterations=num_iterations,
-                                                                                   num_shape_coefficients_to_fit=num_shape_coefficients_to_fit)
+                                                                                   num_shape_coefficients_to_fit=num_shape_coefficients_to_fit,
+                                                                                   pca_shape_coefficients=shape_coeffs_guess,
+                                                                                   blendshape_coefficients = blendshape_coeffs_guess)
     return meshs, poses, shape_coeffs, blendshape_coeffss
 
 
@@ -89,6 +99,11 @@ def createTextureMap(mesh, pose, im):
     return eos.render.extract_texture(mesh, pose, im)
 def getMeshFromShapeCeoffs(shape_coeffs=[], blendshape_coeffs=[]):
     return eos.morphablemodel.draw_sample(model, blendshapes, shape_coeffs, blendshape_coeffs, [])
+def getPoseFromShapeCeoffs(landmarks, im, shape_coeffs, blendshape_coeffs=[]):
+    image_width = im.shape[1]
+    image_height = im.shape[0]
+
+    return eos.fitting.fit_pose(model, landmarks, landmark_ids, landmark_mapper, image_width, image_height, shape_coeffs, blendshapes=blendshapes, blendshape_coefficients=blendshape_coeffs)
 
 def exportMeshToJSON(mesh):
     verts = np.array(mesh.vertices)[:,0:3].flatten().tolist()

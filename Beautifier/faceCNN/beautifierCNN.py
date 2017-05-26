@@ -29,8 +29,9 @@ if __name__ == "__main__":
     from sklearn.linear_model import LinearRegression
     from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
     from Beautifier.faceFeatures import getLandmarks
-    from Beautifier.face3D.faceFeatures3D import model_bfm, landmark_ids, landmark_mapper_bfm, getMeshFromLandmarks, model as model_sfm, landmark_mapper as landmark_mapper_sfm
+    from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks, getMeshFromShapeCeoffs, getPoseFromShapeCeoffs
     from Beautifier.face3D.warpFace3D import drawMesh, warpFace3D
+    from Beautifier.faceCNN.SFM_2_BFM import BFM_2_SFM
 
     # ## Loading the Basel Face Model to write the 3D output
     BFM_path = os.path.join(os.environ['CNN_PATH'], 'BaselFaceModel_mod.mat')
@@ -42,61 +43,60 @@ if __name__ == "__main__":
 
     GENDER = "M"
 
-    dstFolder = "./resultsCNN{}/".format(GENDER)
+    dstFolder = "./resultsCNN{}eB/".format(GENDER)
 
     datasets = [#loadUS10k(type="cnn", gender=GENDER),
                 loadRateMe(type="cnn", gender=GENDER)]
 
     trainX, trainY, pca, gp = datasets[0]
 
-    reg = LinearRegression()
-    reg.fit(trainX[:,0:99], trainY)
+    # imFolder = r"E:\Facedata\RateMe\21_F_423ekl\*.jpg"  # 8.1
+    imFolder = r"C:\Users\ellio\PycharmProjects\circlelines\Beautifier\face3D\me\*.jpg"
+    # imFolder = r"E:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg"
 
     print("begin beautification")
-    for i, impath in enumerate([r"C:\Users\ellio\PycharmProjects\circlelines\Beautifier\face3D\me\8.jpg"]):#enumerate(glob.glob(r"E:\Facedata\10k US Adult Faces Database\Publication Friendly 49-Face Database\49 Face Images\*.jpg")):
+    for i, impath in enumerate([r"E:\Facedata\RateMe\22_F_3g5498\5i7r2x0.jpg"]):#glob.glob(imFolder)):
         print(i)
         im = cv2.imread(impath)
         filename = os.path.basename(impath)
 
-        trainX, trainY, pca, gp = datasets[0]
-
         try:
             landmarks = getLandmarks(im)
 
-            # for j in [5, 50, 100, 200, 300]:
-            #     mesh_sfm, pose_sfm, shape_coeffs_sfm, blendshape_coeffs_sfm = getMeshFromLandmarks(landmarks, im, num_iterations=j)
-            # # pose_sfm = eos.fitting.fit_pose(model_sfm, landmarks, landmark_ids, landmark_mapper_sfm, im.shape[1], im.shape[0], shape_coeffs_sfm)
-            #     drawIm = drawMesh(im, mesh_sfm, pose_sfm)
-            #     cv2.imshow("sfm_{}".format(j), drawIm)
-            # cv2.waitKey(-1)
+            #fit an sfm mesh to the face, we need the pose and blendshapes
+            mesh_sfm_orig, pose_sfm_orig, facefeatures_sfm_orig, blendshape_coeffs_sfm = getMeshFromLandmarks(landmarks, im)
+            facefeatures_sfm_orig = np.array(facefeatures_sfm_orig)
 
-
+            #get the BFM facefeatures whioh is more accurate, convert sfm so we can do the morphing
             facefeatures_bfm = getFaceFeaturesCNN([im])
-            pose_bfm = eos.fitting.fit_pose(model_bfm, landmarks, landmark_ids, landmark_mapper_bfm, im.shape[1], im.shape[0], facefeatures_bfm)
-            mesh_bfm = eos.morphablemodel.draw_sample(model_bfm, [], facefeatures_bfm, [], [])
+            facefeatures_sfm = BFM_2_SFM(facefeatures_bfm, facefeatures_sfm_orig)
+            mesh_sfm = getMeshFromShapeCeoffs(facefeatures_sfm, blendshape_coeffs_sfm)
+            pose_sfm = getPoseFromShapeCeoffs(landmarks, im, facefeatures_sfm, blendshape_coeffs_sfm)
 
-            drawIm = drawMesh(im, mesh_bfm, pose_bfm)
-            cv2.imshow("bfm", drawIm)
-            cv2.waitKey(-1)
+            #optimise new BFM facefeatures to be more attractive
+            new_facefeatures_bfm = facefeatures_bfm.copy()
 
+            scale = -2
+            new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] - (attributes['gender_shape'][0:99] * scale)
+            # new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] - (attributes['weight_shape'][0:99] * scale)
+            # new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] + (attributes['height_shape'][0:99] * scale)
+            # new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] - (attributes['age_shape'][0:99] * scale)
+            # new_facefeatures_bfm[0:99] = findBestFeaturesOptimisation(facefeatures_bfm[0:99], gp)
 
-            newfacefeatures = facefeatures_bfm.copy()
+            #convert to SFM features
+            new_facefeatures_sfm = BFM_2_SFM(new_facefeatures_bfm, facefeatures_sfm)
+            new_mesh_sfm = getMeshFromShapeCeoffs(new_facefeatures_sfm, blendshape_coeffs_sfm)
 
-            scale = 10
-            # newfacefeatures[0:99] = newfacefeatures[0:99] - (reg.coef_[0:99] * scale)
-            # newfacefeatures[0:99] = newfacefeatures[0:99] - (attributes['gender_shape'][0:99] * scale)
-            newfacefeatures[0:99] = newfacefeatures[0:99] - (attributes['weight_shape'][0:99] * scale)
-            # newfacefeatures[0:99] = newfacefeatures[0:99] + (attributes['height_shape'][0:99] * scale)
-            # newfacefeatures[0:99] = newfacefeatures[0:99] - (attributes['age_shape'][0:99] * scale)
-
-
-            # newfacefeatures[0:99] = findBestFeaturesOptimisation(facefeatures_bfm[0:99], gp)
-
-            mesh_bfm_new = eos.morphablemodel.draw_sample(model_bfm, [], newfacefeatures, [], [])
-
-            warpedIm = warpFace3D(im, mesh_bfm, pose_bfm, mesh_bfm_new)
+            warpedIm = warpFace3D(im, mesh_sfm, pose_sfm, new_mesh_sfm, accurate=True)
             cv2.imshow("orig", im)
             cv2.imshow("bfm", warpedIm)
+            cv2.imshow("mesh_orig", drawMesh(im, mesh_sfm_orig, pose_sfm_orig))
+            cv2.imshow("mesh_bfm_orig_pose", drawMesh(im, mesh_sfm, pose_sfm_orig))
+            cv2.imshow("mesh_bfm", drawMesh(im, mesh_sfm, pose_sfm))
+            cv2.imshow("mesh_new", drawMesh(im, new_mesh_sfm, pose_sfm))
+
+            cv2.imwrite(os.path.join(dstFolder, "{}_0.jpg".format(filename)), im)
+            cv2.imwrite(os.path.join(dstFolder, "{}_1.jpg".format(filename)), warpedIm)
             cv2.waitKey(-1)
 
             # outfileOLD = os.path.join(dstFolder, "%s_OLD.ply" % filename)

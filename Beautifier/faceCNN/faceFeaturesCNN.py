@@ -31,7 +31,7 @@ def getNet():
         ## Loading the CNN
         NET = caffe.Classifier(deploy_path, model_path)
         ## Setting up the right transformer for an input image
-        TRANSFORMER = caffe.io.Transformer({'data': net.blobs['data'].data.shape})
+        TRANSFORMER = caffe.io.Transformer({'data': NET.blobs['data'].data.shape})
         TRANSFORMER.set_transpose('data', (2, 0, 1))
         TRANSFORMER.set_channel_swap('data', (2, 1, 0))
         TRANSFORMER.set_raw_scale('data', 255.0)
