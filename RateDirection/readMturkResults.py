@@ -57,7 +57,7 @@ def readMturkResults2(filepath):
 
             workerId = row[15]
             filename = row[27]
-            shape_coeffs = json.loads(row[28])
+            shape_coeffs = np.array(json.loads(row[28]))
             imagelist = json.loads(row[29])
             chosenFaces = np.array(row[30].split(","), dtype=np.int32)
             stages = np.array(row[31].split(","), dtype=np.int32)
@@ -123,7 +123,9 @@ def calculate_concensus2(results_by_image):
         all_contradictions[filename] = contradictions
 
         print("{}: {}/{}".format(filename, len(contradictions),len(votes)))
-
+    c_count = sum([len(all_contradictions[f]) for f in all_contradictions])
+    t_count = sum([len(results_by_image[f]) for f in results_by_image])
+    print("total: {}/{}".format(c_count, t_count))
     return vector_by_image
 
 if __name__ == "__main__":
@@ -156,7 +158,8 @@ if __name__ == "__main__":
 
     # plt.show()
     num_arrows = 40
-    X, Y = np.meshgrid(np.linspace(-1.5, 1.5, num_arrows), np.linspace(-1.5, 1.5, num_arrows))
+    plt_range = 2
+    X, Y = np.meshgrid(np.linspace(-plt_range, plt_range, num_arrows), np.linspace(-plt_range, plt_range, num_arrows))
     U = np.zeros_like(X)
     V = np.zeros_like(Y)
 
@@ -188,4 +191,69 @@ if __name__ == "__main__":
     qk = plt.quiverkey(Q, 0.9, 0.9, 2, r'$2 \frac{m}{s}$', labelpos='E',
                        coordinates='figure')
 
+    plt.draw()
+
+    from RateMe.RateMe import loadRateMe
+    trainX, trainY, pca, gp = loadRateMe(type="3d", gender="F")
+    X, Y = np.meshgrid(np.linspace(-plt_range, plt_range, num_arrows), np.linspace(-plt_range, plt_range, num_arrows))
+
+    Xf = X.flatten()
+
+    samples = np.zeros((Xf.shape[0],63))
+    samples[:, 0] = Xf
+    samples[:, 1] = Y.flatten()
+    y_preds = gp.predict(samples)
+    y_preds = y_preds.reshape(X.shape)
+
+    gradientX, gradientY = np.gradient(y_preds)
+
+    plt.figure()
+    plt.title('svms gradient')
+    Q = plt.quiver(X, Y, gradientX, gradientY, units='width')#
     plt.show()
+
+
+
+
+
+    # impath = r"E:\Facedata\RateMe\21_F_423ekl\HeC768w.jpg"
+    # # impath = r"E:\Facedata\RateMe\21_F_42mxvl\fWIPj9e.jpg"
+    # im = cv2.imread(impath)
+    # landmarks = getLandmarks(im)
+    # mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=300)
+    #
+    # new_shape_coeffs = np.array(shape_coeffs).copy()
+    # distance_moved = 0
+    # poss = []
+    # while distance_moved < 1:
+    #     pos = new_shape_coeffs[:2]
+    #
+    #     numerator = np.zeros_like(pos)
+    #     denominator = 0
+    #     for influence in vectors:
+    #         squared_distance = np.sum(np.square(pos - influence[0]))
+    #         divisor = np.power(squared_distance, P / 2)
+    #
+    #         numerator += influence[1] / divisor
+    #         denominator += 1 / divisor
+    #
+    #     v = numerator / denominator
+    #
+    #     v *= 0.1
+    #
+    #     distance_moved += np.linalg.norm(v)
+    #     pos += v
+    #     new_shape_coeffs[:2] = pos
+    #     poss.append(pos.copy())
+    # poss = np.array(poss)
+    # plt.plot(poss[:,0],poss[:,1],'r-')
+    #
+    # plt.show()
+    #
+    # import eos
+    # newMesh = eos.morphablemodel.draw_sample(model, blendshapes, new_shape_coeffs, blendshape_coeffs, [])  # newFaceFeatures[63:], [])
+    #
+    # warpedIm = warpFace3D(im, mesh, pose, newMesh, accurate=False)
+    # cv2.imshow("warped", warpedIm)
+    # # cv2.waitKey(1)
+    # cv2.waitKey(-1)
