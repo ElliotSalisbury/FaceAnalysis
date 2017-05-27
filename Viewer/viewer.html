@@ -6,20 +6,57 @@
     <script src="js/math.min.js" type="text/javascript"></script>
     <script src="js/jquery-1.11.1.min.js" type="text/javascript"></script>
     <script src="js/msgpack.min.js"></script>
+
+    <script src="js/imagewarp/deformation.js"></script>
+    <script src="js/imagewarp/interpolation.js"></script>
+    <script src="js/imagewarp/point.js"></script>
+    <script src="js/imagewarp/matrix22.js"></script>
 </head>
 <script>
-    function project(vert, modelview, projection, viewport) {
-        var tmp = math.multiply(modelview, vert);
-        tmp = math.multiply(projection,tmp);
+    var modelview = math.matrix([[  9.67626870e-01, 5.26047684e-02, 2.46841967e-01, 2.02012115e+02],
+ [  2.13536061e-02, 9.57466424e-01, -2.87753433e-01, 3.08644836e+02],
+ [ -2.51480103e-01, 2.83708900e-01, 9.25346971e-01, 0.00000000e+00],
+ [  0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]);
 
-        tmp = math.divide(tmp,tmp.valueOf()[3]);
-        tmp = math.add(math.multiply(tmp,0.5),0.5);
-        tmp = tmp.valueOf();
-        tmp[0] = tmp[0] * viewport[2] + viewport[0];
-        tmp[1] = tmp[1] * viewport[3] + viewport[1];
+    var projection = math.matrix([[ 0.00582778, 0., 0., -1.],
+ [ 0., 0.00436994, 0., -1.],
+ [ 0., 0., -1., 0.],
+ [ 0., 0., 0., 1.]]);
 
-        return math.matrix([tmp[0],tmp[1]]);
-    }
+    var viewport = [0, 1619, 1214, -1619];
+
+    var face_features = [-1.3899188, -0.31437248, 0.39862245, -0.17326295, -0.58920825, 1.33979106, 0.24576366, -0.23009896, -0.9392814, -1.3747803, -2.34062982, 0.73216659, -1.65795839, -1.09947038, -1.68242455, 1.26441729, 0.52666277, -1.08615279, -1.37764704, -0.10091068, -1.22396874, -0.14061791, -0.11206818, -0.74355024, 2.15908194, -1.05449438, -0.74450868, -1.38947666, -0.38417625, -1.98786008, -0.20028761, 0.94499606, -2.0136745, 2.18466759, -0.26373667, -0.56074834, -0.07350224, -0.32011729, 0.23012736, -0.70777565, 1.06910682, -1.30811071, -1.37783968, 0.52656472, -0.11109983, -0.11986182, -0.2666713, 0.33289737, -0.95165789, -0.58249366, -0.79010588, 0.13853192, 1.26283312, -0.0642623, 0.95973945, 0.78225952, 0.03489829, 0.39579889, -0.17772783, 0.4263019, -1.29014635, -1.53219414, 0.21380037, 0.25274134, -0.2175387, -0.95807874, -0.67026711, -0.86947596, 0.23103558, 1.09530187, 0.79784453, -0.77484584, 0.16089122, -0.39230999, -0.03486511, -0.62317973, -0.4159916, 0.19297919, 0.9896853, 0.91287416, -0.54414606, 0.78180784, 0.18172094, 0.0965414, -0.29660341, -0.54517114, 0.04756223, 0.04124359, 0.6284008, 0.45518121, 0.72639918, 0.40954083, 1.05767655, -0.59409547, 0.84799439, 0.84707612, -0.21827903, 0.36823744, -0.27945986];
+
+    var indexs = [43783, 38057, 38530, 38775, 39320, 39581, 39949, 8319, 6653, 8334, 9878, 2088, 5959, 10603, 14472, 5006, 8344, 11714, 8374, 8354, 8366];
+
+    var canvas, ctx;
+    var origverts, origpoints;
+    var bfm;
+    var imgWarper;
+    var img = new Image();
+    img.onload = function(){
+        console.log("img downloaded");
+        initializeImgWarper();
+    };
+    img.src="img/5i7r2x0.jpg";
+
+    //init function
+    $(function() {
+        //begin downloading the bfm model
+        downloadMsgPack('bfm.msg', modelReady);
+
+        //get the canvas object
+        canvas = document.getElementById("warpCanvas");
+        origImage = document.getElementById("origImage");
+        ctx = canvas.getContext("2d");
+
+        $("#coeff0").change(function() {
+            updatemesh();
+        });
+        $("#coeff1").change(function() {
+            updatemesh();
+        });
+    });
 
     function downloadMsgPack(url, callback) {
         var oReq = new XMLHttpRequest();
@@ -37,12 +74,45 @@
         oReq.send();
     }
 
-    var bfm = {};
-    function loadmesh(data){
+    function modelReady(data) {
         bfm = data;
-        var verts = meshFromFeatures(bfm, [1,0,0,0,0]);
+        origverts = quickMeshFromFeatures(bfm, indexs, face_features);
+        origverts = origverts.valueOf();
 
-        updatemesh();
+        console.log("bfm downloaded");
+        initializeImgWarper();
+    }
+
+    function initializeImgWarper() {
+        if(bfm && img.complete) {
+            origpoints = [];
+            origpoints.push(new ImgWarper.Point(0,0));
+            origpoints.push(new ImgWarper.Point(0,img.height));
+            origpoints.push(new ImgWarper.Point(img.width,img.height));
+            origpoints.push(new ImgWarper.Point(img.width,0));
+            for (i in origverts) {
+                var vert = origverts[i];
+                var vert4 = [vert[0], vert[1], vert[2], 1];
+                var vert2d = project(vert4, modelview, projection, viewport).valueOf();
+                origpoints.push(new ImgWarper.Point(vert2d[0],vert2d[1]));
+            }
+
+            console.log("initialize warper");
+            imgWarper = new ImgWarper.Warper(canvas, img);
+        }
+    }
+
+    function project(vert, modelview, projection, viewport) {
+        var tmp = math.multiply(modelview, vert);
+        tmp = math.multiply(projection,tmp);
+
+        tmp = math.divide(tmp,tmp.valueOf()[3]);
+        tmp = math.add(math.multiply(tmp,0.5),0.5);
+        tmp = tmp.valueOf();
+        tmp[0] = tmp[0] * viewport[2] + viewport[0];
+        tmp[1] = tmp[1] * viewport[3] + viewport[1];
+
+        return math.matrix([tmp[0],tmp[1]]);
     }
 
     function meshFromFeatures(model, features) {
@@ -95,6 +165,7 @@
     }
 
     function drawLandmarks(landmarks) {
+
         ctx.drawImage(origImage, 0, 0, origImage.width, origImage.height);
 
         for (i in landmarks) {
@@ -114,72 +185,32 @@
         }
     }
 
-    downloadMsgPack('bfm.msg', loadmesh);
-    var modelview = math.matrix([[  9.67626870e-01, 5.26047684e-02, 2.46841967e-01, 2.02012115e+02],
- [  2.13536061e-02, 9.57466424e-01, -2.87753433e-01, 3.08644836e+02],
- [ -2.51480103e-01, 2.83708900e-01, 9.25346971e-01, 0.00000000e+00],
- [  0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]);
-
-    var projection = math.matrix([[ 0.00582778, 0., 0., -1.],
- [ 0., 0.00436994, 0., -1.],
- [ 0., 0., -1., 0.],
- [ 0., 0., 0., 1.]]);
-
-    var viewport = [0, 1619, 1214, -1619];
-
-    var face_features = [-1.3899188, -0.31437248, 0.39862245, -0.17326295, -0.58920825, 1.33979106, 0.24576366, -0.23009896, -0.9392814, -1.3747803, -2.34062982, 0.73216659, -1.65795839, -1.09947038, -1.68242455, 1.26441729, 0.52666277, -1.08615279, -1.37764704, -0.10091068, -1.22396874, -0.14061791, -0.11206818, -0.74355024, 2.15908194, -1.05449438, -0.74450868, -1.38947666, -0.38417625, -1.98786008, -0.20028761, 0.94499606, -2.0136745, 2.18466759, -0.26373667, -0.56074834, -0.07350224, -0.32011729, 0.23012736, -0.70777565, 1.06910682, -1.30811071, -1.37783968, 0.52656472, -0.11109983, -0.11986182, -0.2666713, 0.33289737, -0.95165789, -0.58249366, -0.79010588, 0.13853192, 1.26283312, -0.0642623, 0.95973945, 0.78225952, 0.03489829, 0.39579889, -0.17772783, 0.4263019, -1.29014635, -1.53219414, 0.21380037, 0.25274134, -0.2175387, -0.95807874, -0.67026711, -0.86947596, 0.23103558, 1.09530187, 0.79784453, -0.77484584, 0.16089122, -0.39230999, -0.03486511, -0.62317973, -0.4159916, 0.19297919, 0.9896853, 0.91287416, -0.54414606, 0.78180784, 0.18172094, 0.0965414, -0.29660341, -0.54517114, 0.04756223, 0.04124359, 0.6284008, 0.45518121, 0.72639918, 0.40954083, 1.05767655, -0.59409547, 0.84799439, 0.84707612, -0.21827903, 0.36823744, -0.27945986];
-
-    var indexs = [43783,
-38057,
-38530,
-38775,
-39320,
-39581,
-39949,
-8319,
-6653,
-8334,
-9878,
-2088,
-5959,
-10603,
-14472,
-5006,
-8344,
-11714,
-8374,
-8354,
-8366];
-
-    var canvas, ctx;
-    $(function() {
-        canvas = document.getElementById("warpCanvas");
-        origImage = document.getElementById("origImage");
-
-        canvas.width  = origImage.naturalWidth;
-        canvas.height = origImage.naturalHeight;
-        ctx = canvas.getContext("2d");
-
-        $("#coeff0").change(function() {
-            updatemesh();
-        });
-        $("#coeff1").change(function() {
-            updatemesh();
-        });
-    });
-
     function updatemesh() {
         //recalculate mesh
         var verts = quickMeshFromFeatures(bfm, indexs, [parseFloat($("#coeff0").val()), parseFloat($("#coeff1").val())]);
+        verts = verts.valueOf();
         //draw landmarks
-        drawLandmarks(verts.valueOf(), indexs);
+        points = [];
+        points.push(new ImgWarper.Point(0,0));
+        points.push(new ImgWarper.Point(0,1619));
+        points.push(new ImgWarper.Point(1214,1619));
+        points.push(new ImgWarper.Point(1214,0));
+        for (i in verts) {
+            var vert = verts[i];
+            var vert4 = [vert[0], vert[1], vert[2], 1];
+            var vert2d = project(vert4, modelview, projection, viewport).valueOf();
+            points.push(new ImgWarper.Point(vert2d[0],vert2d[1]));
+        }
+        imgWarper.warp(origpoints, points);
+//        drawLandmarks(verts.valueOf());
     }
 
 </script>
 <body>
-<input type="range" id="coeff0" value="0" min="-4" max="4" step="0.1">
-<input type="range" id="coeff1" value="0" min="-4" max="4" step="0.1">
-<img id="origImage" src="img/5i7r2x0.jpg" style="display:none;">
+<div id="controls">
+    <input type="range" id="coeff0" value="0" min="-4" max="4" step="0.1">
+    <input type="range" id="coeff1" value="0" min="-4" max="4" step="0.1">
+</div>
 <canvas id="warpCanvas"  style="width:100%; height:100%;">
 
 </canvas>
