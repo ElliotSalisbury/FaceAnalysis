@@ -7,6 +7,8 @@ ImgWarper.Warper = function(
   this.canvas = canvas;
   this.ctx = canvas.getContext("2d");
 
+  this.showGrid = false;
+
   var source = img;
   this.width = source.width;
   this.height = source.height;
@@ -32,6 +34,10 @@ ImgWarper.Warper = function(
   }
 }
 
+ImgWarper.Warper.prototype.toggleGrid = function() {
+  this.showGrid = !this.showGrid;
+}
+
 ImgWarper.Warper.prototype.warp = function(fromPoints, toPoints) {
   var t0 = (new Date()).getTime();
   var deformation = 
@@ -52,9 +58,9 @@ ImgWarper.Warper.prototype.warp = function(fromPoints, toPoints) {
   this.ctx.putImageData(newImg, 0, 0);
   var t2 = (new Date()).getTime();
   console.log('warped');
-  // if (document.getElementById('show-grid').checked) {
+  if (this.showGrid) {
     this.drawGrid(fromPoints, toPoints);
-  // }
+  }
 }
 
 ImgWarper.Warper.prototype.drawGrid = function(fromPoints, toPoints) {

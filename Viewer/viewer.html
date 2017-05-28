@@ -17,27 +17,24 @@
     <script src="js/imagewarp/matrix22.js"></script>
 </head>
 <script>
-    var modelview = math.matrix([[  9.67626870e-01, 5.26047684e-02, 2.46841967e-01, 2.02012115e+02],
- [  2.13536061e-02, 9.57466424e-01, -2.87753433e-01, 3.08644836e+02],
- [ -2.51480103e-01, 2.83708900e-01, 9.25346971e-01, 0.00000000e+00],
- [  0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]);
+    var modelview = math.matrix([[0.9676268696784973, 0.05260476842522621, 0.24684196710586548, 202.01211547851562], [0.02135360613465309, 0.9574664235115051, -0.2877534329891205, 308.64483642578125], [-0.2514801025390625, 0.2837089002132416, 0.9253469705581665, 0.0], [0.0, 0.0, 0.0, 1.0]]);
 
-    var projection = math.matrix([[ 0.00582778, 0., 0., -1.],
- [ 0., 0.00436994, 0., -1.],
- [ 0., 0., -1., 0.],
- [ 0., 0., 0., 1.]]);
+    var projection = math.matrix([[0.00582777988165617, 0.0, 0.0, -1.0], [0.0, 0.004369935020804405, 0.0, -1.0], [0.0, 0.0, -1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]);
 
     var viewport = [0, 1619, 1214, -1619];
 
-    var face_features = [-1.3899188, -0.31437248, 0.39862245, -0.17326295, -0.58920825, 1.33979106, 0.24576366, -0.23009896, -0.9392814, -1.3747803, -2.34062982, 0.73216659, -1.65795839, -1.09947038, -1.68242455, 1.26441729, 0.52666277, -1.08615279, -1.37764704, -0.10091068, -1.22396874, -0.14061791, -0.11206818, -0.74355024, 2.15908194, -1.05449438, -0.74450868, -1.38947666, -0.38417625, -1.98786008, -0.20028761, 0.94499606, -2.0136745, 2.18466759, -0.26373667, -0.56074834, -0.07350224, -0.32011729, 0.23012736, -0.70777565, 1.06910682, -1.30811071, -1.37783968, 0.52656472, -0.11109983, -0.11986182, -0.2666713, 0.33289737, -0.95165789, -0.58249366, -0.79010588, 0.13853192, 1.26283312, -0.0642623, 0.95973945, 0.78225952, 0.03489829, 0.39579889, -0.17772783, 0.4263019, -1.29014635, -1.53219414, 0.21380037, 0.25274134, -0.2175387, -0.95807874, -0.67026711, -0.86947596, 0.23103558, 1.09530187, 0.79784453, -0.77484584, 0.16089122, -0.39230999, -0.03486511, -0.62317973, -0.4159916, 0.19297919, 0.9896853, 0.91287416, -0.54414606, 0.78180784, 0.18172094, 0.0965414, -0.29660341, -0.54517114, 0.04756223, 0.04124359, 0.6284008, 0.45518121, 0.72639918, 0.40954083, 1.05767655, -0.59409547, 0.84799439, 0.84707612, -0.21827903, 0.36823744, -0.27945986];
+    var face_features = [-0.5532902693274548, -0.8292028651409497, 1.0571687459841956, -2.3025305505203026, 0.7430163410793367, -0.11145151560924439, 1.7776416134608717, 1.460948256842372, 1.7136922760503297, -2.6220371383058376, -2.941108959078685, -2.1813370277754833];
 
-    var indexs = [43783, 38057, 38530, 38775, 39320, 39581, 39949, 8319, 6653, 8334, 9878, 2088, 5959, 10603, 14472, 5006, 8344, 11714, 8374, 8354, 8366];
+    var indexs = [11, 2578, 2579, 2580, 21, 2581, 2072, 2076, 2589, 2082, 2083, 2086, 2091, 2101, 590, 605, 606, 607, 2657, 2658, 610, 100, 614, 2160, 2161, 624, 114, 658, 662, 666, 2203, 2204, 157, 172, 173, 174, 177, 693, 181, 2235, 2237, 191, 2247, 1736, 1738, 2262, 2263, 2264, 2265, 1755, 1757, 736, 225, 229, 1766, 1767, 233, 2794, 2797, 756, 2816, 770, 775, 264, 270, 272, 2842, 1819, 1820, 797, 1822, 1823, 800, 1833, 812, 825, 1850, 1851, 315, 1861, 2373, 2374, 1863, 329, 841, 2394, 2395, 2396, 1895, 363, 365, 1908, 1909, 373, 379, 382, 392, 393, 398, 411, 413, 431, 2508, 2001, 2011, 2012, 2533, 2026];
 
     var canvas, ctx;
     var origverts, origpoints;
-    var bfm;
+    var model;
     var imgWarper;
     var img = new Image();
+
+    var showLandmarks = false;
+
     img.onload = function(){
         console.log("img downloaded");
         initializeImgWarper();
@@ -47,12 +44,21 @@
     //init function
     $(function() {
         //begin downloading the bfm model
-        downloadMsgPack('bfm.msg', modelReady);
+        downloadMsgPack('sfm.msg', modelReady);
 
         //get the canvas object
         canvas = document.getElementById("warpCanvas");
         origImage = document.getElementById("origImage");
         ctx = canvas.getContext("2d");
+
+        $("#showlandmarks").change(function() {
+            showLandmarks = !showLandmarks;
+            updatemesh();
+        });
+        $("#showgrid").change(function() {
+            imgWarper.toggleGrid();
+            updatemesh();
+        });
 
         $("#coeff0").change(function() {
             updatemesh();
@@ -79,16 +85,18 @@
     }
 
     function modelReady(data) {
-        bfm = data;
-        origverts = quickMeshFromFeatures(bfm, indexs, face_features);
+        model = data;
+        origverts = quickMeshFromFeatures(model, indexs, face_features);
+//        origverts = meshFromFeatures(bfm, face_features);
+
         origverts = origverts.valueOf();
 
-        console.log("bfm downloaded");
+        console.log("model downloaded");
         initializeImgWarper();
     }
 
     function initializeImgWarper() {
-        if(bfm && img.complete) {
+        if(model && img.complete) {
             origpoints = [];
             origpoints.push(new ImgWarper.Point(0,0));
             origpoints.push(new ImgWarper.Point(0,img.height));
@@ -121,12 +129,12 @@
 
     function meshFromFeatures(model, features) {
         var alpha = [];
-        for(var i=0; i<99; i++) {
+        for(var i=0; i<model.shapeEV.length; i++) {
             var feature = 0;
             if(i in features) {
                 feature = features[i]
             }
-            alpha[i] = model.shapeEV[i] * feature;
+            alpha[i] = feature;//model.shapeEV[i] * feature;
         }
         alpha = math.matrix(alpha);
         var shape = math.multiply(model.shapePC, alpha);
@@ -139,12 +147,12 @@
 
     function quickMeshFromFeatures(model, indexs, features) {
         var alpha = [];
-        for(var i=0; i<99; i++) {
+        for(var i=0; i<model.shapeEV.length; i++) {
             var feature = 0;
             if(i in features) {
                 feature = features[i]
             }
-            alpha[i] = model.shapeEV[i] * feature;
+            alpha[i] = feature;//model.shapeEV[i] * feature;
         }
         alpha = math.matrix(alpha);
 
@@ -169,9 +177,6 @@
     }
 
     function drawLandmarks(landmarks) {
-
-        ctx.drawImage(origImage, 0, 0, origImage.width, origImage.height);
-
         for (i in landmarks) {
             var vert = landmarks[i];
             var vert4 = [vert[0], vert[1], vert[2], 1];
@@ -191,7 +196,8 @@
 
     function updatemesh() {
         //recalculate mesh
-        var verts = quickMeshFromFeatures(bfm, indexs, [parseFloat($("#coeff0").val()), parseFloat($("#coeff1").val())]);
+        var verts = quickMeshFromFeatures(model, indexs, [face_features[0] + parseFloat($("#coeff0").val()), face_features[1] + parseFloat($("#coeff1").val())]);
+//        var verts = meshFromFeatures(bfm, [parseFloat($("#coeff0").val()), parseFloat($("#coeff1").val())]);
         verts = verts.valueOf();
         //draw landmarks
         points = [];
@@ -206,7 +212,9 @@
             points.push(new ImgWarper.Point(vert2d[0],vert2d[1]));
         }
         imgWarper.warp(origpoints, points);
-//        drawLandmarks(verts.valueOf());
+        if (showLandmarks) {
+            drawLandmarks(verts);
+        }
     }
 
 </script>
@@ -225,6 +233,15 @@
             <div class="form-group form-group-lg">
                 <label class="control-label" for="coeff1">Coefficient 1:</label>
                 <input type="range" id="coeff1" value="0" min="-4" max="4" step="0.1">
+            </div>
+
+            <div class="form-group form-group-lg">
+                <label class="control-label" for="showlandmarks">Show Landmarks:</label>
+                <input type="checkbox" id="showlandmarks">
+            </div>
+            <div class="form-group form-group-lg">
+                <label class="control-label" for="showgrid">Show Grid:</label>
+                <input type="checkbox" id="showgrid">
             </div>
         </div>
     </div>
