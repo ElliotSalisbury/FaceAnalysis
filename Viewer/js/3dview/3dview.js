@@ -1,24 +1,26 @@
-var camera, controls, scene, renderer;
+var container, camera, controls, scene, renderer;
 var currMesh;
 
 function init3d() {
     scene = new THREE.Scene();
 
+    container = document.getElementById( '3dcanvas' );
+
     renderer = new THREE.WebGLRenderer();
     renderer.setClearColor( 0x444444 );
     renderer.setPixelRatio( window.devicePixelRatio );
-    renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.setSize( container.clientWidth, container.clientHeight );
 
-    var container = document.getElementById( '3dcanvas' );
+
     container.appendChild( renderer.domElement );
 
-	camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 2000 );
-    camera.position.x = 0;
-    camera.position.y = 0;
-    camera.position.z = 600;
+	camera = new THREE.PerspectiveCamera( 60, container.clientWidth / container.clientHeight, 1, 2000 );
+    camera.position.x = 100;
+    camera.position.z = 200;
+
     
     controls = new THREE.OrbitControls( camera, renderer.domElement );
-    controls.target = new THREE.Vector3(400,-100,-50);
+    controls.target = new THREE.Vector3(0,0,-50);
     controls.enableDamping = true;
     controls.dampingFactor = 1.25;
     controls.enableZoom = true;
@@ -30,14 +32,14 @@ function init3d() {
 }
 
 function onWindowResize() {
-    camera.left = window.innerWidth / - 2;
-    camera.right = window.innerWidth / 2;
-    camera.top = window.innerHeight / 2;
-    camera.bottom = window.innerHeight / - 2;
+    camera.left = container.clientWidth / - 2;
+    camera.right = container.clientWidth / 2;
+    camera.top = container.clientHeight / 2;
+    camera.bottom = container.clientHeight / - 2;
 
     camera.updateProjectionMatrix();
 
-    renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.setSize( container.clientWidth, container.clientHeight );
 }
 
 function animate() {
