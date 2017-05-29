@@ -14,13 +14,14 @@ def exportModelBFMToJSON(model):
     return outdata
 
 def exportModelSFMToJSON(model):
-    model = model.get_shape_model()
+    shape_pca_model = model.get_shape_model()
 
     outdata = {}
-    outdata["shapeEV"] = np.array(model.get_eigenvalues()).tolist()
-    outdata["shapePC"] = np.array(model.get_rescaled_pca_basis()).tolist()
-    outdata["shapeMU"] = np.array(model.get_mean()).tolist()
-    outdata["faces"] = np.array(model.get_triangle_list()).tolist()
+    outdata["shapeEV"] = np.array(shape_pca_model.get_eigenvalues()).tolist()
+    outdata["shapePC"] = np.array(shape_pca_model.get_rescaled_pca_basis()).tolist()
+    outdata["shapeMU"] = np.array(shape_pca_model.get_mean()).tolist()
+    outdata["faces"] = np.array(shape_pca_model.get_triangle_list()).tolist()
+    outdata["UVs"] = np.array(model.get_texture_coordinates()).tolist()
 
     return outdata
 

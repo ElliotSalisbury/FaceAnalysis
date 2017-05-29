@@ -68,10 +68,24 @@
             updatemesh();
         });
 
+        resetCoeffs();
         $("#coeff0").change(function() {
             updatemesh();
         });
         $("#coeff1").change(function() {
+            updatemesh();
+        });
+        $("#coeff2").change(function() {
+            updatemesh();
+        });
+        $("#coeff3").change(function() {
+            updatemesh();
+        });
+        $("#coeff4").change(function() {
+            updatemesh();
+        });
+        $("#default").click(function() {
+            resetCoeffs();
             updatemesh();
         });
     });
@@ -97,7 +111,7 @@
         origverts = quickMeshFromFeatures(model, indexs, face_features).valueOf();
 
         origverts2 = meshFromFeatures(model, face_features).valueOf();
-        setMesh(origverts2, model.faces);
+        createMesh(origverts2, model.faces, model.UVs);
 
         console.log("model downloaded");
         initializeImgWarper();
@@ -205,14 +219,17 @@
     function updatemesh() {
         //recalculate mesh
         var new_face_features = face_features.slice();
-        new_face_features[0] += parseFloat($("#coeff0").val());
-        new_face_features[1] += parseFloat($("#coeff1").val());
+        new_face_features[0] = parseFloat($("#coeff0").val());
+        new_face_features[1] = parseFloat($("#coeff1").val());
+        new_face_features[2] = parseFloat($("#coeff2").val());
+        new_face_features[3] = parseFloat($("#coeff3").val());
+        new_face_features[4] = parseFloat($("#coeff4").val());
 
         var verts = quickMeshFromFeatures(model, indexs, new_face_features).valueOf();
 //        var verts = meshFromFeatures(model, [parseFloat($("#coeff0").val()), parseFloat($("#coeff1").val())]);
 
         var newverts2 = meshFromFeatures(model, new_face_features).valueOf();
-        setMesh(newverts2, model.faces);
+        updateMesh(newverts2);
 
         //warp image
         points = [];
@@ -233,6 +250,14 @@
         }
     }
 
+    function resetCoeffs() {
+        $("#coeff0").val(face_features[0]);
+        $("#coeff1").val(face_features[1]);
+        $("#coeff2").val(face_features[2]);
+        $("#coeff3").val(face_features[3]);
+        $("#coeff4").val(face_features[4]);
+    }
+
 </script>
 <body>
 <div class="container">
@@ -251,6 +276,22 @@
                 <input type="range" id="coeff1" value="0" min="-4" max="4" step="0.1">
             </div>
 
+            <div class="form-group form-group-lg">
+                <label class="control-label" for="coeff2">Coefficient 2:</label>
+                <input type="range" id="coeff2" value="0" min="-4" max="4" step="0.1">
+            </div>
+
+            <div class="form-group form-group-lg">
+                <label class="control-label" for="coeff3">Coefficient 3:</label>
+                <input type="range" id="coeff3" value="0" min="-4" max="4" step="0.1">
+            </div>
+
+            <div class="form-group form-group-lg">
+                <label class="control-label" for="coeff4">Coefficient 4:</label>
+                <input type="range" id="coeff4" value="0" min="-4" max="4" step="0.1">
+            </div>
+
+            <button id="default">Reset To Default</button>
             <div class="form-group form-group-lg">
                 <label class="control-label" for="showlandmarks">Show Landmarks:</label>
                 <input type="checkbox" id="showlandmarks">
