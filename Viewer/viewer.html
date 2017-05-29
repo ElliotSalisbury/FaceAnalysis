@@ -15,6 +15,10 @@
     <script src="js/imagewarp/interpolation.js"></script>
     <script src="js/imagewarp/point.js"></script>
     <script src="js/imagewarp/matrix22.js"></script>
+
+    <script src="js/3dview/three.min.js"></script>
+    <script src="js/3dview/OrbitControls.js"></script>
+    <script src="js/3dview/3dview.js"></script>
 </head>
 <script>
     var modelview = math.matrix([[0.9676268696784973, 0.05260476842522621, 0.24684196710586548, 202.01211547851562], [0.02135360613465309, 0.9574664235115051, -0.2877534329891205, 308.64483642578125], [-0.2514801025390625, 0.2837089002132416, 0.9253469705581665, 0.0], [0.0, 0.0, 0.0, 1.0]]);
@@ -45,6 +49,10 @@
     $(function() {
         //begin downloading the bfm model
         downloadMsgPack('sfm.msg', modelReady);
+
+        //intialize the 3d rendering code
+        init3d();
+        animate();
 
         //get the canvas object
         canvas = document.getElementById("warpCanvas");
@@ -86,10 +94,10 @@
 
     function modelReady(data) {
         model = data;
-        origverts = quickMeshFromFeatures(model, indexs, face_features);
-//        origverts = meshFromFeatures(bfm, face_features);
+        origverts = quickMeshFromFeatures(model, indexs, face_features).valueOf();
 
-        origverts = origverts.valueOf();
+        origverts2 = meshFromFeatures(model, face_features).valueOf();
+        setMesh(origverts2, model.faces);
 
         console.log("model downloaded");
         initializeImgWarper();
@@ -176,7 +184,7 @@
         return verts;
     }
 
-    function drawLandmarks(landmarks) {
+    function drawLandmarks(landmarks, color) {
         for (i in landmarks) {
             var vert = landmarks[i];
             var vert4 = [vert[0], vert[1], vert[2], 1];
@@ -185,7 +193,7 @@
             var radius = 10;
             ctx.beginPath();
             ctx.arc(vert2d[0], vert2d[1], radius, 0, 2 * Math.PI, false);
-            ctx.fillStyle = 'green';
+            ctx.fillStyle = color;
             ctx.fill();
             ctx.lineWidth = 5;
             ctx.strokeStyle = '#003300';
@@ -196,10 +204,17 @@
 
     function updatemesh() {
         //recalculate mesh
-        var verts = quickMeshFromFeatures(model, indexs, [face_features[0] + parseFloat($("#coeff0").val()), face_features[1] + parseFloat($("#coeff1").val())]);
-//        var verts = meshFromFeatures(bfm, [parseFloat($("#coeff0").val()), parseFloat($("#coeff1").val())]);
-        verts = verts.valueOf();
-        //draw landmarks
+        var new_face_features = face_features.slice();
+        new_face_features[0] += parseFloat($("#coeff0").val());
+        new_face_features[1] += parseFloat($("#coeff1").val());
+
+        var verts = quickMeshFromFeatures(model, indexs, new_face_features).valueOf();
+//        var verts = meshFromFeatures(model, [parseFloat($("#coeff0").val()), parseFloat($("#coeff1").val())]);
+
+        var newverts2 = meshFromFeatures(model, new_face_features).valueOf();
+        setMesh(newverts2, model.faces);
+
+        //warp image
         points = [];
         points.push(new ImgWarper.Point(0,0));
         points.push(new ImgWarper.Point(0,1619));
@@ -213,7 +228,8 @@
         }
         imgWarper.warp(origpoints, points);
         if (showLandmarks) {
-            drawLandmarks(verts);
+            drawLandmarks(origverts, "green");
+            drawLandmarks(verts, "red");
         }
     }
 
@@ -243,6 +259,7 @@
                 <label class="control-label" for="showgrid">Show Grid:</label>
                 <input type="checkbox" id="showgrid">
             </div>
+            <div id="3dcanvas"></div>
         </div>
     </div>
 </div>
