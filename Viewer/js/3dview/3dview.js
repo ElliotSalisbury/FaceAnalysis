@@ -16,11 +16,11 @@ function init3d() {
 
 	camera = new THREE.PerspectiveCamera( 60, container.clientWidth / container.clientHeight, 1, 2000 );
     camera.position.x = 100;
-    camera.position.z = 200;
+    camera.position.z = 300;
 
     
     controls = new THREE.OrbitControls( camera, renderer.domElement );
-    controls.target = new THREE.Vector3(0,0,-50);
+    controls.target = new THREE.Vector3(0,00,30);
     controls.enableDamping = true;
     controls.dampingFactor = 1.25;
     controls.enableZoom = true;
@@ -69,15 +69,15 @@ function createMesh(verts, faces, uvs) {
             var face = faces[i];
             geometry.faces.push(new THREE.Face3(face[0], face[1], face[2]));
 
-            geometry.faceVertexUvs[0].push([    new THREE.Vector2(uvs[face[0]][0], 1-uvs[face[0]][1]),
-                                                new THREE.Vector2(uvs[face[1]][0], 1-uvs[face[1]][1]),
-                                                new THREE.Vector2(uvs[face[2]][0], 1-uvs[face[2]][1])]);
+            // geometry.faceVertexUvs[0].push([    new THREE.Vector2(uvs[face[0]][0], 1-uvs[face[0]][1]),
+            //                                     new THREE.Vector2(uvs[face[1]][0], 1-uvs[face[1]][1]),
+            //                                     new THREE.Vector2(uvs[face[2]][0], 1-uvs[face[2]][1])]);
         }
 
         geometry.computeFaceNormals();
 
-        var material = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('img/isomap.jpg') } );
-        // var material = new THREE.MeshNormalMaterial();
+        // var material = new THREE.MeshPhongMaterial( { map: THREE.ImageUtils.loadTexture('img/isomap.jpg') } );
+        var material = new THREE.MeshNormalMaterial();
         currMesh = new THREE.Mesh( geometry, material );
         scene.add( currMesh );
     }else {
