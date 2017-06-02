@@ -5,7 +5,7 @@ import pandas as pd
 import pickle
 from Beautifier.gaussianProcess import trainGP
 from Beautifier.faceFeatures import getFaceFeatures
-from Beautifier.face3D.faceFeatures3D import getMeshFromMultiLandmarks
+from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING
 from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
 import numpy as np
 import math
@@ -103,7 +103,7 @@ def saveFacialFeatures(combinedcsvpath):
         if len(ims) > 0:
             print("(%i/%i) #i:%i" % (i, len(grouped), len(ims)))
             print(usedImPaths)
-            meshs, poses, shape_coeffs, blendshape_coeffss = getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=-1, num_iterations=300)
+            meshs, poses, shape_coeffs, blendshape_coeffss = SFM_FACEFITTING.getMeshFromMultiLandmarks(landmarkss, ims, num_shape_coefficients_to_fit=-1, num_iterations=300)
 
             facefeaturesCNN = getFaceFeaturesCNN(ims, landmarkss)
 
@@ -130,7 +130,6 @@ def saveFacialFeatures(combinedcsvpath):
     return allDataDF
 
 def dataFrameTo2D(df):
-    from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D2DFromShapeCoeffs
     allData = []
     for index, row in df.iterrows():
         print("converting index {}/{} to a 2d dataframe".format(index, len(df)))
@@ -214,8 +213,6 @@ def saveServerOptimised():
                 pickle.dump(loadRateMe(type=type, gender=gender), file)
 
 if __name__ == "__main__":
-    from Beautifier.face3D.faceFeatures3D import getFaceFeatures3D2DFromShapeCoeffs
-
     rateMeFolder = "E:\\Facedata\\RateMe"
     combinedPath = os.path.join(rateMeFolder, "combined.csv")
 
@@ -227,7 +224,7 @@ if __name__ == "__main__":
 
     trainGP(df2d, os.path.join(scriptFolder, "2d"), train_on_PCA=False, generate_PCA=True)
 
-    trainGP(df, os.path.join(scriptFolder, "3d"), featureset="facefeatures3D", train_on_PCA=True, generate_PCA=True, transformer_func=getFaceFeatures3D2DFromShapeCoeffs)
+    trainGP(df, os.path.join(scriptFolder, "3d"), featureset="facefeatures3D", train_on_PCA=False, generate_PCA=True)
 
     trainGP(df, os.path.join(scriptFolder, "cnn"), featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
 

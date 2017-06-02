@@ -1,7 +1,6 @@
 import numpy as np
 import cv2
 from Beautifier.warpFace import warpFace, warpTriangle
-from Beautifier.face3D.faceFeatures3D import landmarks_2_vert_indices
 
 MOUTH_POINTS = list(range(48, 61))
 RIGHT_BROW_POINTS = list(range(17, 22))
@@ -10,8 +9,6 @@ RIGHT_EYE_POINTS = list(range(36, 42))
 LEFT_EYE_POINTS = list(range(42, 48))
 NOSE_POINTS = list(range(27, 35))
 ALL_FACE_LANDMARKS = MOUTH_POINTS + RIGHT_BROW_POINTS + LEFT_BROW_POINTS + RIGHT_EYE_POINTS + LEFT_EYE_POINTS + NOSE_POINTS
-ALL_FACE_MESH_VERTS = landmarks_2_vert_indices[ALL_FACE_LANDMARKS]
-ALL_FACE_MESH_VERTS = np.delete(ALL_FACE_MESH_VERTS, np.where(ALL_FACE_MESH_VERTS == -1)).tolist()
 
 def project(p, modelview, proj, viewport):
     tmp = modelview * p[:, np.newaxis]
@@ -111,11 +108,14 @@ def drawMesh(im, mesh, pose):
 
     return drawIm
 
-def warpFace3D(im, oldMesh, pose, newMesh, accurate=False):
+def warpFace3D(im, oldMesh, pose, newMesh, accurate=False, fitter=None):
     oldVerts2d = projectMeshTo2D(oldMesh, pose, im)
     newVerts2d = projectMeshTo2D(newMesh, pose, im)
 
-    if not accurate:
+    if not accurate and fitter is not None:
+        ALL_FACE_MESH_VERTS = fitter.landmarks_2_vert_indices[ALL_FACE_LANDMARKS]
+        ALL_FACE_MESH_VERTS = np.delete(ALL_FACE_MESH_VERTS, np.where(ALL_FACE_MESH_VERTS == -1)).tolist()
+
         oldConvexHullIndexs = cv2.convexHull(oldVerts2d.astype(np.float32), returnPoints=False)
         warpPointIndexs = oldConvexHullIndexs.flatten().tolist() + ALL_FACE_MESH_VERTS
 

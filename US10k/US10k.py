@@ -6,8 +6,9 @@ import dlib
 import numpy as np
 import pandas as pd
 from Beautifier.faceFeatures import getFaceFeatures
-from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks
+from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING
 from Beautifier.gaussianProcess import trainGP
+from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
 
 #quickly change gender settings
 GENDER_DICT = {0:"F",1:"M"}
@@ -48,12 +49,14 @@ def saveFacialFeatures(demographicsData):
 
                 try:
                     landmarks, faceFeatures = getFaceFeatures(im)
-                    mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
+                    mesh, pose, shape_coeffs, blendshape_coeffs = SFM_FACEFITTING.getMeshFromLandmarks(landmarks, im, num_shape_coefficients_to_fit=10)
+                    facefeaturesCNN = getFaceFeaturesCNN([im], [landmarks])
 
                     dataDict = {"gender": gender, "attractiveness": attractiveScore,
                                 "landmarks": landmarks, "facefeatures": faceFeatures,
                                 "facefeatures3D": shape_coeffs, "pose": pose, "blendshape_coeffs": blendshape_coeffs,
-                                "impath": impath
+                                "impath": impath,
+                                "facefeaturesCNN": facefeaturesCNN,
                                 }
 
                     allData.append(dataDict)
@@ -98,9 +101,10 @@ def loadUS10k(type="2d", gender="F"):
     return trainX, trainY, pca, gp
 
 if __name__ == "__main__":
-    # demographicsData = readUS10kDemographics()
+    demographicsData = readUS10kDemographics()
     # df = saveFacialFeatures(demographicsData)
     df = loadUS10kFacialFeatures()
 
-    trainGP(df, os.path.join(scriptFolder, "2d"), trainPercentage=0.8, train_on_PCA=False, generate_PCA=True)
-    trainGP(df, os.path.join(scriptFolder, "3d"), trainPercentage=0.8, featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
+    trainGP(df, os.path.join(scriptFolder, "2d"), train_on_PCA=False, generate_PCA=True)
+    trainGP(df, os.path.join(scriptFolder, "3d"), featureset="facefeatures3D", train_on_PCA=False, generate_PCA=False)
+    trainGP(df, os.path.join(scriptFolder, "cnn"), featureset="facefeaturesCNN", train_on_PCA=False, generate_PCA=False)
