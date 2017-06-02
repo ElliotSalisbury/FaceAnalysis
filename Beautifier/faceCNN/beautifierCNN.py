@@ -2,14 +2,17 @@ import numpy as np
 import cv2
 import os
 import scipy
+import json
+from Beautifier.face3D.faceFeatures3D import BFM_FACEFITTING
+from Beautifier.face3D.warpFace3D import ALL_FACE_LANDMARKS, projectMeshTo2D
 
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
 
-def findBestFeaturesOptimisation(featuresCNN, gp):
+def findBestFeaturesOptimisation(featuresCNN, predictor):
     print("finding optimal face features optimisation")
 
     def GPCostFunction(features):
-        y_pred = gp.predict([features])
+        y_pred = predictor.predict([features])
         return -y_pred
 
     bounds = np.zeros((featuresCNN.shape[0],2))
@@ -18,6 +21,62 @@ def findBestFeaturesOptimisation(featuresCNN, gp):
 
     optimalNewFaceFeatures = scipy.optimize.minimize(GPCostFunction, featuresCNN, bounds=bounds, method='SLSQP', options={"maxiter": 5, "eps": 0.001})
     return optimalNewFaceFeatures.x
+
+def getWebResults(im, predictor):
+    facefeatures_bfm = getFaceFeaturesCNN([im])[0:99]
+
+    rating = predictor.predict([facefeatures_bfm])
+
+    # new_facefeatures_bfm = facefeatures_bfm.copy()
+    new_facefeatures_bfm = findBestFeaturesOptimisation(facefeatures_bfm, predictor)
+
+    landmarks = getLandmarks(im)
+    pose_bfm = BFM_FACEFITTING.getPoseFromShapeCeoffs(landmarks, im, facefeatures_bfm)
+    mesh_bfm = BFM_FACEFITTING.getMeshFromShapeCeoffs(facefeatures_bfm)
+    modelview, projection, viewport, indexs = decomposePose(mesh_bfm, pose_bfm, im)
+
+    results = {}
+    results["facefeatures"] = json.dumps(facefeatures_bfm)
+    results["rating"] = rating
+    results["new_facefeatures"] = json.dumps(new_facefeatures_bfm)
+    results["modelview"] = modelview
+    results["projection"] = projection
+    results["viewport"] = viewport
+    results["indexs"] = indexs
+
+    return json.dumps(results)
+
+
+def decomposePose(mesh, pose, im):
+    modelview = np.matrix(pose.get_modelview())
+    proj = np.matrix(pose.get_projection())
+    viewport = np.array([0, im.shape[0], im.shape[1], -im.shape[0]])
+
+    modelview = json.dumps(modelview.tolist())
+    projection = json.dumps(proj.tolist())
+    viewport = json.dumps(viewport.tolist())
+
+    ALL_FACE_MESH_VERTS = BFM_FACEFITTING.landmarks_2_vert_indices_bfm[ALL_FACE_LANDMARKS]
+    ALL_FACE_MESH_VERTS = np.delete(ALL_FACE_MESH_VERTS, np.where(ALL_FACE_MESH_VERTS == -1)).tolist()
+    verts2d = projectMeshTo2D(mesh, pose, im)
+    convexHullIndexs = cv2.convexHull(verts2d.astype(np.float32), returnPoints=False)
+    warpPointIndexs = convexHullIndexs.flatten().tolist() + ALL_FACE_MESH_VERTS
+    indexs = json.dumps(warpPointIndexs)
+
+    return modelview, projection, viewport, indexs
+
+def poseToJS(mesh, pose, im):
+    modelview, projection, viewport, indexs = decomposePose(mesh, pose, im)
+
+    js_modelview = "var modelview = math.matrix({});".format(modelview)
+    js_proj = "var projection = math.matrix({});".format(projection)
+    js_viewport = "var viewport = {};".format(viewport)
+    js_indexs = "var indexs = {};".format(indexs)
+
+    print(js_modelview)
+    print(js_proj)
+    print(js_viewport)
+    print(js_indexs)
 
 if __name__ == "__main__":
     import eos
@@ -29,7 +88,7 @@ if __name__ == "__main__":
     from sklearn.linear_model import LinearRegression
     from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
     from Beautifier.faceFeatures import getLandmarks
-    from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks, getMeshFromShapeCeoffs, getPoseFromShapeCeoffs
+    from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING
     from Beautifier.face3D.warpFace3D import drawMesh, warpFace3D
     from Beautifier.faceCNN.SFM_2_BFM import BFM_2_SFM
 
@@ -64,39 +123,52 @@ if __name__ == "__main__":
             landmarks = getLandmarks(im)
 
             #fit an sfm mesh to the face, we need the pose and blendshapes
-            mesh_sfm_orig, pose_sfm_orig, facefeatures_sfm_orig, blendshape_coeffs_sfm = getMeshFromLandmarks(landmarks, im)
+            mesh_sfm_orig, pose_sfm_orig, facefeatures_sfm_orig, blendshape_coeffs_sfm = SFM_FACEFITTING.getMeshFromLandmarks(landmarks, im)
             facefeatures_sfm_orig = np.array(facefeatures_sfm_orig)
 
-            #get the BFM facefeatures whioh is more accurate, convert sfm so we can do the morphing
-            facefeatures_bfm = getFaceFeaturesCNN([im])
+            #get the BFM facefeatures whioh is more accurate
+            facefeatures_bfm = getFaceFeaturesCNN([im])[:99]
+            pose_bfm = BFM_FACEFITTING.getPoseFromShapeCeoffs(landmarks, im, facefeatures_bfm)
+            mesh_bfm = BFM_FACEFITTING.getMeshFromShapeCeoffs(facefeatures_bfm)
+            poseToJS(mesh_bfm, pose_bfm, im)
+
+            # convert sfm so we can do the morphing
             facefeatures_sfm = BFM_2_SFM(facefeatures_bfm, facefeatures_sfm_orig)
-            mesh_sfm = getMeshFromShapeCeoffs(facefeatures_sfm, blendshape_coeffs_sfm)
-            pose_sfm = getPoseFromShapeCeoffs(landmarks, im, facefeatures_sfm, blendshape_coeffs_sfm)
+            mesh_sfm = SFM_FACEFITTING.getMeshFromShapeCeoffs(facefeatures_sfm, blendshape_coeffs_sfm)
+            pose_sfm = SFM_FACEFITTING.getPoseFromShapeCeoffs(landmarks, im, facefeatures_sfm, blendshape_coeffs_sfm)
+
+            # isomap = createTextureMap(mesh_bfm, pose_bfm, im)
+            # cv2.imwrite("isomap.jpg", isomap)
 
             #optimise new BFM facefeatures to be more attractive
             new_facefeatures_bfm = facefeatures_bfm.copy()
 
-            scale = -2
-            new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] - (attributes['gender_shape'][0:99] * scale)
-            # new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] - (attributes['weight_shape'][0:99] * scale)
+            # scale = 5
+            # new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] - (attributes['gender_shape'][0:99] * scale)
+            # new_facefeatures_bfm[0:99] += (attributes['weight_shape'][0:99] * 40 * scale)
             # new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] + (attributes['height_shape'][0:99] * scale)
             # new_facefeatures_bfm[0:99] = new_facefeatures_bfm[0:99] - (attributes['age_shape'][0:99] * scale)
-            # new_facefeatures_bfm[0:99] = findBestFeaturesOptimisation(facefeatures_bfm[0:99], gp)
+            new_facefeatures_bfm[0:99] = findBestFeaturesOptimisation(facefeatures_bfm[0:99], gp)
 
             #convert to SFM features
+            new_mesh_bfm = BFM_FACEFITTING.getMeshFromShapeCeoffs(new_facefeatures_bfm)
             new_facefeatures_sfm = BFM_2_SFM(new_facefeatures_bfm, facefeatures_sfm)
-            new_mesh_sfm = getMeshFromShapeCeoffs(new_facefeatures_sfm, blendshape_coeffs_sfm)
+            new_mesh_sfm = SFM_FACEFITTING.getMeshFromShapeCeoffs(new_facefeatures_sfm, blendshape_coeffs_sfm)
 
-            warpedIm = warpFace3D(im, mesh_sfm, pose_sfm, new_mesh_sfm, accurate=True)
+            warpedIm_bfm = warpFace3D(im, mesh_bfm, pose_bfm, new_mesh_bfm, accurate=True)
+            warpedIm_sfm = warpFace3D(im, mesh_sfm, pose_sfm, new_mesh_sfm, accurate=True)
             cv2.imshow("orig", im)
-            cv2.imshow("bfm", warpedIm)
-            cv2.imshow("mesh_orig", drawMesh(im, mesh_sfm_orig, pose_sfm_orig))
-            cv2.imshow("mesh_bfm_orig_pose", drawMesh(im, mesh_sfm, pose_sfm_orig))
-            cv2.imshow("mesh_bfm", drawMesh(im, mesh_sfm, pose_sfm))
-            cv2.imshow("mesh_new", drawMesh(im, new_mesh_sfm, pose_sfm))
+            cv2.imshow("warped_bfm", warpedIm_bfm)
+            cv2.imshow("warped_sfm", warpedIm_sfm)
+            cv2.imshow("mesh_bfm_orig", drawMesh(im, mesh_bfm, pose_bfm))
+            cv2.imshow("mesh_sfm_orig", drawMesh(im, mesh_sfm_orig, pose_sfm_orig))
+            cv2.imshow("mesh_bfm_orig_2_sfm", drawMesh(im, mesh_sfm, pose_sfm))
 
-            cv2.imwrite(os.path.join(dstFolder, "{}_0.jpg".format(filename)), im)
-            cv2.imwrite(os.path.join(dstFolder, "{}_1.jpg".format(filename)), warpedIm)
+            cv2.imshow("mesh_bfm_opt", drawMesh(im, new_mesh_bfm, pose_bfm))
+            cv2.imshow("mesh_bfm_opt_2_sfm", drawMesh(im, new_mesh_sfm, pose_sfm))
+
+            # cv2.imwrite(os.path.join(dstFolder, "{}_0.jpg".format(filename)), im)
+            # cv2.imwrite(os.path.join(dstFolder, "{}_1.jpg".format(filename)), warpedIm)
             cv2.waitKey(-1)
 
             # outfileOLD = os.path.join(dstFolder, "%s_OLD.ply" % filename)
@@ -107,4 +179,4 @@ if __name__ == "__main__":
             # S, T = utils.projectBackBFM(model, newfacefeatures)
             # utils.write_ply(outfileNEW, S, T, faces)
         except Exception as e:
-            print(e)
+            raise e

@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 import Beautifier.faceCNN.utils as utils
 import shapely.geometry
-from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks, getMeshFromShapeCeoffs, landmarks_2_vert_indices, landmarks_2_vert_indices_bfm
+from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING
 
 BFM_path = os.path.join(os.environ['CNN_PATH'], 'BaselFaceModel_mod.mat')
 # ## Loading the Basel Face Model to write the 3D output
@@ -12,12 +12,19 @@ BFM_MODEL = scipy.io.loadmat(BFM_path, squeeze_me=True, struct_as_record=False)
 BFM_MODEL = BFM_MODEL["BFM"]
 BFM_FACES = BFM_MODEL.faces - 1
 
+import eos
+EOS_SHARE_PATH = os.environ['EOS_DATA_PATH']
+landmark_ids = list(map(str, range(1, 69)))
+landmark_mapper_bfm = eos.core.LandmarkMapper(os.path.join(EOS_SHARE_PATH,"ibug_to_bfm.txt"))
+landmarks_2_vert_indices_bfm = [landmark_mapper_bfm.convert(l) for l in landmark_ids]
+landmarks_2_vert_indices_bfm = np.array([int(i) if i else -1 for i in landmarks_2_vert_indices_bfm])
+
 def BFM_2_SFM(bfm_shape_coeffs, sfm_shape_coeffs_guess):
     bfm_verts, bfm_texts = utils.projectBackBFM(BFM_MODEL, bfm_shape_coeffs)
 
     comparison_landmarks = []
     for i in range(68):
-        sfm_v_i = landmarks_2_vert_indices[i]
+        sfm_v_i = SFM_FACEFITTING.landmarks_2_vert_indices[i]
         bfm_v_i = landmarks_2_vert_indices_bfm[i]
         if sfm_v_i != -1 and bfm_v_i != -1:
             comparison_landmarks.append((sfm_v_i, bfm_v_i))
@@ -35,13 +42,13 @@ def BFM_2_SFM(bfm_shape_coeffs, sfm_shape_coeffs_guess):
     # bfm_max_z = np.max(S[:, 2])
     NOSE_LANDMARK = 30
     bfm_nose_v_i = landmarks_2_vert_indices_bfm[NOSE_LANDMARK]
-    sfm_nose_v_i = landmarks_2_vert_indices[NOSE_LANDMARK]
+    sfm_nose_v_i = SFM_FACEFITTING.landmarks_2_vert_indices[NOSE_LANDMARK]
     max_nose_v = bfm_verts[bfm_nose_v_i]
 
     iterCount = 0
     def mesh_distance(sfm_shape):
         nonlocal iterCount
-        sfm_mesh = getMeshFromShapeCeoffs(sfm_shape)
+        sfm_mesh = SFM_FACEFITTING.getMeshFromShapeCeoffs(sfm_shape)
 
         sfm_verts = np.array(sfm_mesh.vertices)[:, :3]
         sfm_verts = sfm_verts + np.array([0,0,( max_nose_v - sfm_verts[sfm_nose_v_i] )[2]])
@@ -106,7 +113,7 @@ if __name__ == "__main__":
 
     # sfm model
     landmarks = getLandmarks(im)
-    sfm_mesh, pose, sfm_features, blendshape_coeffs = getMeshFromLandmarks(landmarks, im)
+    sfm_mesh, pose, sfm_features, blendshape_coeffs = SFM_FACEFITTING.getMeshFromLandmarks(landmarks, im)
     sfm_features = np.array(sfm_features)
     print(sfm_features)
 
@@ -129,7 +136,7 @@ if __name__ == "__main__":
     print(new_sfm_shape)
 
     # sfm model
-    sfm_mesh = getMeshFromShapeCeoffs(new_sfm_shape)
+    sfm_mesh = SFM_FACEFITTING.getMeshFromShapeCeoffs(new_sfm_shape)
 
     verts_sfm = np.array(sfm_mesh.vertices)[:, :3]
     verts_sfm = verts_sfm + np.array([0, 0, np.max(S[:, 2]) - np.max(verts_sfm[:, 2])])
