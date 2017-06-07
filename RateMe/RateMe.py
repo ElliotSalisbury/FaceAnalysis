@@ -207,7 +207,7 @@ def loadRateMe(type="2d", gender="F", server=False):
     return trainX, trainY, pca, gp
 
 def saveServerOptimised():
-    for type in ["2d", "3d"]:
+    for type in ["2d", "3d", "cnn"]:
         for gender in ["F", "M"]:
             with open(os.path.join(scriptFolder, "server/%s_%s.p"%(type,gender)), "wb") as file:
                 pickle.dump(loadRateMe(type=type, gender=gender), file)

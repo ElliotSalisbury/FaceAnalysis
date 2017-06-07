@@ -5,6 +5,8 @@ import scipy
 import json
 from Beautifier.face3D.faceFeatures3D import BFM_FACEFITTING
 from Beautifier.face3D.warpFace3D import ALL_FACE_LANDMARKS, projectMeshTo2D
+from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
+from Beautifier.faceFeatures import getLandmarks
 
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
 
@@ -25,7 +27,7 @@ def findBestFeaturesOptimisation(featuresCNN, predictor):
 def getWebResults(im, predictor):
     facefeatures_bfm = getFaceFeaturesCNN([im])[0:99]
 
-    rating = predictor.predict([facefeatures_bfm])
+    rating = predictor.predict([facefeatures_bfm])[0]
 
     # new_facefeatures_bfm = facefeatures_bfm.copy()
     new_facefeatures_bfm = findBestFeaturesOptimisation(facefeatures_bfm, predictor)
@@ -36,15 +38,15 @@ def getWebResults(im, predictor):
     modelview, projection, viewport, indexs = decomposePose(mesh_bfm, pose_bfm, im)
 
     results = {}
-    results["facefeatures"] = json.dumps(facefeatures_bfm)
+    results["facefeatures"] = facefeatures_bfm.tolist()
     results["rating"] = rating
-    results["new_facefeatures"] = json.dumps(new_facefeatures_bfm)
+    results["new_facefeatures"] = new_facefeatures_bfm.tolist()
     results["modelview"] = modelview
     results["projection"] = projection
     results["viewport"] = viewport
     results["indexs"] = indexs
 
-    return json.dumps(results)
+    return results
 
 
 def decomposePose(mesh, pose, im):
@@ -52,26 +54,26 @@ def decomposePose(mesh, pose, im):
     proj = np.matrix(pose.get_projection())
     viewport = np.array([0, im.shape[0], im.shape[1], -im.shape[0]])
 
-    modelview = json.dumps(modelview.tolist())
-    projection = json.dumps(proj.tolist())
-    viewport = json.dumps(viewport.tolist())
+    modelview = modelview.tolist()
+    projection = proj.tolist()
+    viewport = viewport.tolist()
 
-    ALL_FACE_MESH_VERTS = BFM_FACEFITTING.landmarks_2_vert_indices_bfm[ALL_FACE_LANDMARKS]
+    ALL_FACE_MESH_VERTS = BFM_FACEFITTING.landmarks_2_vert_indices[ALL_FACE_LANDMARKS]
     ALL_FACE_MESH_VERTS = np.delete(ALL_FACE_MESH_VERTS, np.where(ALL_FACE_MESH_VERTS == -1)).tolist()
     verts2d = projectMeshTo2D(mesh, pose, im)
     convexHullIndexs = cv2.convexHull(verts2d.astype(np.float32), returnPoints=False)
     warpPointIndexs = convexHullIndexs.flatten().tolist() + ALL_FACE_MESH_VERTS
-    indexs = json.dumps(warpPointIndexs)
+    indexs = warpPointIndexs
 
     return modelview, projection, viewport, indexs
 
 def poseToJS(mesh, pose, im):
     modelview, projection, viewport, indexs = decomposePose(mesh, pose, im)
 
-    js_modelview = "var modelview = math.matrix({});".format(modelview)
-    js_proj = "var projection = math.matrix({});".format(projection)
-    js_viewport = "var viewport = {};".format(viewport)
-    js_indexs = "var indexs = {};".format(indexs)
+    js_modelview = "var modelview = math.matrix({});".format(json.dumps(modelview))
+    js_proj = "var projection = math.matrix({});".format(json.dumps(projection))
+    js_viewport = "var viewport = {};".format(json.dumps(viewport))
+    js_indexs = "var indexs = {};".format(json.dumps(indexs))
 
     print(js_modelview)
     print(js_proj)
@@ -79,18 +81,17 @@ def poseToJS(mesh, pose, im):
     print(js_indexs)
 
 if __name__ == "__main__":
-    import eos
-    import glob
-    from US10k.US10k import loadUS10k
-    from RateMe.RateMe import loadRateMe
-    import Beautifier.faceCNN.utils as utils
-    import scipy.io
-    from sklearn.linear_model import LinearRegression
-    from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
-    from Beautifier.faceFeatures import getLandmarks
-    from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING
-    from Beautifier.face3D.warpFace3D import drawMesh, warpFace3D
-    from Beautifier.faceCNN.SFM_2_BFM import BFM_2_SFM
+    # import eos
+    # import glob
+    # from US10k.US10k import loadUS10k
+    # from RateMe.RateMe import loadRateMe
+    # import Beautifier.faceCNN.utils as utils
+    # import scipy.io
+    # from sklearn.linear_model import LinearRegression
+    # from Beautifier.faceFeatures import getLandmarks
+    # from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING
+    # from Beautifier.face3D.warpFace3D import drawMesh, warpFace3D
+    # from Beautifier.faceCNN.SFM_2_BFM import BFM_2_SFM
 
     # ## Loading the Basel Face Model to write the 3D output
     BFM_path = os.path.join(os.environ['CNN_PATH'], 'BaselFaceModel_mod.mat')

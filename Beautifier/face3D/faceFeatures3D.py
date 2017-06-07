@@ -103,9 +103,9 @@ class FaceFitting:
 # landmarks_2_vert_indices_bfm = np.array([int(i) if i else -1 for i in landmarks_2_vert_indices_bfm])
 SFM_FACEFITTING = FaceFitting(model_path=os.path.join(EOS_SHARE_PATH, "sfm_shape_3448.bin"),
                               blendshapes_path=os.path.join(EOS_SHARE_PATH, "expression_blendshapes_3448.bin"),
-                              landmarks_mapping_path=os.path.join(EOS_SHARE_PATH, "ibug2did.txt"),
+                              landmarks_mapping_path=os.path.join(EOS_SHARE_PATH, "ibug_to_sfm.txt"),
                               edge_topology_path=os.path.join(EOS_SHARE_PATH, "sfm_3448_edge_topology.json"),
-                              contour_landmarks_path=os.path.join(EOS_SHARE_PATH, "ibug2did.txt"),
+                              contour_landmarks_path=os.path.join(EOS_SHARE_PATH, "ibug_to_sfm.txt"),
                               model_contour_path=os.path.join(EOS_SHARE_PATH,"model_contours.json"))
 
 BFM_FACEFITTING = FaceFitting(model_path=os.path.join(EOS_SHARE_PATH, "bfm_small.bin"),
