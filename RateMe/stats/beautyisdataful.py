@@ -7,7 +7,7 @@ import collections
 import cv2
 from Beautifier.faceFeatures import getLandmarks
 from Beautifier.warpFace import drawLandmarks
-from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks
+# from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks
 from Beautifier.face3D.warpFace3D import drawMesh
 
 # titleFont = fm.FontProperties(fname="./fonts/Oswald-Regular.ttf")

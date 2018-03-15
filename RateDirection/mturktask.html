@@ -42,16 +42,18 @@ Keep swapping until you have decided which is the most attractive version.</p>
 </style>
 <script>
 	var nextIm = "https://crowdrobotics.org/static/img/mturk/pilot/start-here.png";
-	
+
+
 	var faceList = ${imageList};
-		//["https://crowdrobotics.org/static/img/mturk/pilot/0_0_-1.jpg",
-		//"https://crowdrobotics.org/static/img/mturk/pilot/0_0_1.jpg",
-		//"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_0.jpg",
-		//"https://crowdrobotics.org/static/img/mturk/pilot/0_1_0.jpg",
-		//"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_-1.jpg",
-		//"https://crowdrobotics.org/static/img/mturk/pilot/0_1_1.jpg",
-		//"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_1.jpg",
-		//"https://crowdrobotics.org/static/img/mturk/pilot/0_1_-1.jpg"];
+//		["https://crowdrobotics.org/static/img/mturk/pilot/0_0_-1.jpg",
+//		"https://crowdrobotics.org/static/img/mturk/pilot/0_0_1.jpg",
+//		"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_0.jpg",
+//		"https://crowdrobotics.org/static/img/mturk/pilot/0_1_0.jpg",
+//		"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_-1.jpg",
+//		"https://crowdrobotics.org/static/img/mturk/pilot/0_1_1.jpg",
+//		"https://crowdrobotics.org/static/img/mturk/pilot/0_-1_1.jpg",
+//		"https://crowdrobotics.org/static/img/mturk/pilot/0_1_-1.jpg"];
+	var num_compares = faceList.length/2;
 		
 	var stage = 0;
 	
@@ -71,7 +73,7 @@ Keep swapping until you have decided which is the most attractive version.</p>
 		
 		$("#im1").click(function(){
 			currentFaceIndex = (currentFaceIndex + 1) % 2;
-			$("#im1").attr("src", faceList[currentFaceIndex + stage]);
+			$("#im1").attr("src", faceList[currentFaceIndex + (stage*2)]);
 			
 			swapCount += 1;
 			
@@ -88,22 +90,12 @@ Keep swapping until you have decided which is the most attractive version.</p>
 			swapCount = 0;
 			$("#next").prop('disabled', true);
 			
-			if (stage == 0) {
+			if (stage < num_compares-1) {
 				currentFaceIndex = Math.floor((Math.random() * 2));
-				stage = 2;
+				stage = stage + 1;
 				
 				$("#im1").attr("src", nextIm);
-			} else if (stage == 2) {
-				if(chosenFaces[0] == chosenFaces[1]) {
-					console.log("00-11");
-					stage = 4;
-				} else {
-					console.log("01-10");
-					stage = 6;
-				}
-				
-				$("#im1").attr("src", nextIm);
-			} else if (stage > 2) {
+			} else {
 				console.log("done");
 				$("#next").prop('disabled', true);
 				$("#next").text("Thanks, please submit");

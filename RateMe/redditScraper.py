@@ -72,13 +72,16 @@ def scrapeRateMe(dstFolder):
 
     reAgeGender = re.compile("(\d+)[\s]*([MF])")
     reGenderAge = re.compile("([MF])[\s]*(\d+)")
-    reRatingSlash = re.compile("(\d+)(\.\d+)?\/10")
+    reRatings = [re.compile("(\d+)(\.\d+)? ?\/ ?10"),
+                 re.compile("(\d+)(\.\d+)"),
+                 re.compile("[sS]olid (\d+)(\.\d+)?")
+                 ]
     reImgurAlbum = re.compile("imgur\.com\/a\/(\w+)")
     reImgurGallery = re.compile("imgur\.com\/gallery\/(\w+)")
 
     rateme = reddit.subreddit('rateme')
     submissions = rateme.submissions()
-    # submissions = rateme.hot(limit=40)
+    # submissions = rateme.hot(limit=40)webs
     for submission in submissions:
         title = submission.title.upper()
 
@@ -98,6 +101,8 @@ def scrapeRateMe(dstFolder):
         submissionCreated = submission.created_utc
         submissionId = submission.id
         submissionTitle = submission.title.encode("ASCII", "ignore")
+        submissionUps = submission.ups
+        submissionDowns = submission.downs
 
         #skip the ones weve done already
         alreadyDone = False
@@ -108,19 +113,32 @@ def scrapeRateMe(dstFolder):
         ratings = []
         noratings = []
         for top_level_comment in submission.comments:
+            #ignore self comments
+            if top_level_comment.author == "AutoModerator" or top_level_comment.author == submission.author:
+                continue
+
             commentString = top_level_comment.body.encode("ASCII", "ignore")
             commentPosted = top_level_comment.created_utc
+            commentUps = top_level_comment.ups
+            commentDowns = top_level_comment.downs
 
-            result = reRatingSlash.search(top_level_comment.body)
+            #try the different
+            result = None
+            for regex in reRatings:
+                result = regex.search(top_level_comment.body)
+                if result:
+                    break
+
             if result:
                 rating = result.group(1)
                 decimal = result.group(2)
                 if int(rating) <= 10:
-                    ratingObject = (submissionId, submissionCreated, submissionTitle, age, gender, str(submission.author), str(top_level_comment.author), rating, decimal, commentPosted, commentString, )
+                    ratingObject = (submissionId, submissionCreated, submissionTitle, age, gender, str(submission.author), str(top_level_comment.author), rating, decimal, commentPosted, commentString, submissionUps, submissionDowns, commentUps, commentDowns)
                     ratings.append(ratingObject)
                     continue
 
-            noratingObject = (submissionId, submissionCreated, submissionTitle, age, gender, str(submission.author), str(top_level_comment.author), "", "", commentPosted, commentString,)
+
+            noratingObject = (submissionId, submissionCreated, submissionTitle, age, gender, str(submission.author), str(top_level_comment.author), "", "", commentPosted, commentString, submissionUps, submissionDowns, commentUps, commentDowns)
             noratings.append(noratingObject)
 
         #if we have enough ratings then lets grab the images
@@ -163,14 +181,110 @@ def scrapeRateMe(dstFolder):
                 ratingsPath = os.path.join(dstPath,"ratings.csv")
                 with open(ratingsPath, 'w', newline='') as f:
                     writer = csv.writer(f)
-                    writer.writerow(("Submission Id", "Submission Created UTC", "Submission Title", "Submission Age", "Submission Gender", "Submission Author", "Rating Author", "Rating", "Decimal", "Rating Posted UTC", "Rating Text"))
+                    writer.writerow(("Submission Id", "Submission Created UTC", "Submission Title", "Submission Age", "Submission Gender", "Submission Author", "Rating Author", "Rating", "Decimal", "Rating Posted UTC", "Rating Text", "Submission Ups", "Submission Downs", "Rating Ups", "Rating Downs"))
                     writer.writerows(ratings)
                     writer.writerows(noratings)
+
+def reCalcRatings(rateMeFolder):
+    my_user_agent = 'RateMeScraper'
+    reddit_client_id = sys.argv[1]
+    reddit_client_secret = sys.argv[2]
+
+    imgur_client_id= sys.argv[3]
+    imgur_client_secret = sys.argv[4]
+
+    reddit = praw.Reddit(user_agent=my_user_agent,
+                         client_id=reddit_client_id,
+                         client_secret=reddit_client_secret)
+
+
+    reAgeGender = re.compile("(\d+)[\s]*([MF])")
+    reGenderAge = re.compile("([MF])[\s]*(\d+)")
+    reRatings = [re.compile("(\d+)(\.\d+)? ?\/ ?10"),
+                 re.compile("(\d+)(\.\d+)"),
+                 re.compile("[sS]olid (\d+)(\.\d+)?"),
+                 re.compile("^(\d+)(\.\d+)?$"),
+                 ]
+    reImgurAlbum = re.compile("imgur\.com\/a\/(\w+)")
+    reImgurGallery = re.compile("imgur\.com\/gallery\/(\w+)")
+
+    submissionFolders = [x[0] for x in os.walk(rateMeFolder)][1:]
+
+    # submissions = rateme.hot(limit=40)
+    for folder in submissionFolders:
+        submissionId = os.path.basename(folder).split("_")[-1]
+        submission = reddit.submission(id=submissionId)
+
+        title = submission.title.upper()
+
+        # get the gender and age
+        result = reAgeGender.search(title)
+        if result:
+            age = result.group(1)
+            gender = result.group(2)
+        else:
+            result = reGenderAge.search(title)
+            if result:
+                age = result.group(2)
+                gender = result.group(1)
+
+        submissionCreated = submission.created_utc
+        submissionId = submission.id
+        submissionTitle = submission.title.encode("ASCII", "ignore")
+        submissionUps = submission.ups
+        submissionDowns = submission.downs
+
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(submissionCreated))
+        print("{} {}".format(submissionId, timestamp))
+
+
+        #check the comments for ratings
+        ratings = []
+        noratings = []
+        for top_level_comment in submission.comments:
+            #ignore self comments
+            if top_level_comment.author == "AutoModerator" or top_level_comment.author == submission.author:
+                continue
+
+            commentString = top_level_comment.body.encode("ASCII", "ignore")
+            commentPosted = top_level_comment.created_utc
+            commentUps = top_level_comment.ups
+            commentDowns = top_level_comment.downs
+
+            #try the different
+            result = None
+            for regex in reRatings:
+                result = regex.search(top_level_comment.body)
+                if result:
+                    break
+
+            if result:
+                rating = result.group(1)
+                decimal = result.group(2)
+                if int(rating) <= 10:
+                    ratingObject = (submissionId, submissionCreated, submissionTitle, age, gender, str(submission.author), str(top_level_comment.author), rating, decimal, commentPosted, commentString, submissionUps, submissionDowns, commentUps, commentDowns)
+                    ratings.append(ratingObject)
+                    continue
+
+
+            noratingObject = (submissionId, submissionCreated, submissionTitle, age, gender, str(submission.author), str(top_level_comment.author), "", "", commentPosted, commentString, submissionUps, submissionDowns, commentUps, commentDowns)
+            noratings.append(noratingObject)
+
+        #save the ratings file
+        ratingsPath = os.path.join(folder,"ratings.csv")
+        with open(ratingsPath, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(("Submission Id", "Submission Created UTC", "Submission Title", "Submission Age", "Submission Gender", "Submission Author", "Rating Author", "Rating", "Decimal", "Rating Posted UTC", "Rating Text", "Submission Ups", "Submission Downs", "Rating Ups", "Rating Downs"))
+            writer.writerows(ratings)
+            writer.writerows(noratings)
 
 
 
 if __name__ == "__main__":
     RateMeFolder = "E:\\Facedata\\RateMe"
 
+    # reCalcRatings(RateMeFolder)
     scrapeRateMe(RateMeFolder)
+
+    print("combining")
     combineRatingCsvs(RateMeFolder)

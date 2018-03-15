@@ -6,12 +6,9 @@ from RateMe.RateMe import ensureImageLessThanMax, loadRateMeFacialFeatures
 from Beautifier.faceFeatures import getFaceFeatures
 from Beautifier.beautifier import findBestFeaturesKNN,calculateLandmarksfromFeatures
 from Beautifier.warpFace import warpFace
-from Beautifier.face3D.faceFeatures3D import createTextureMap, getMeshFromMultiLandmarks_IWH, exportMeshToJSON, model, blendshapes
-from Beautifier.face3D.warpFace3D import drawMesh
-import eos
-import json
+from Beautifier.face3D.faceFeatures3D import BFM_FACEFITTING
+
 import random
-import pickle
 import msgpack
 import dlib
 
@@ -104,17 +101,17 @@ def averageFaces3D(df, outpath):
             if hotgroup.size == 0:
                 continue
 
-            hotFacefeatures = np.array(hotgroup["facefeatures3D"].as_matrix().tolist())
+            hotFacefeatures = np.array(hotgroup["facefeaturesCNN"].as_matrix().tolist())
             avgHotFaceFeatures = hotFacefeatures.mean(axis=0)
 
             title = "averageFaces_%s_%0.2f_%d" % (gender, hotness, hotFacefeatures.shape[0])
             # title = "averageFaces_%s_%d" % (gender, j)
-            hotMesh = eos.morphablemodel.draw_sample(model, blendshapes, avgHotFaceFeatures, [], [])
+            hotMesh = BFM_FACEFITTING.getMeshFromShapeCeoffs(avgHotFaceFeatures)
 
-            with open(os.path.join(outpath, title+".msg"), 'wb') as outfile:
-                meshjson = exportMeshToJSON(hotMesh)
-                msgpack.dump(meshjson,outfile)
-                # json.dump(meshjson, outfile, indent=4, sort_keys=True)
+            # with open(os.path.join(outpath, title+".msg"), 'wb') as outfile:
+            #     meshjson = exportMeshToJSON(hotMesh)
+            #     msgpack.dump(meshjson,outfile)
+            #     json.dump(meshjson, outfile, indent=4, sort_keys=True)
 
 
             #create the texture from the faces
@@ -271,5 +268,5 @@ if __name__ == "__main__":
     #load in the dataframes for analysis
     df = loadRateMeFacialFeatures()
 
-    # averageFaces3D(df, "./rateme3D/")
-    averageFacesImage(df, "./rateme3D/")
+    averageFaces3D(df, "./rateme3D/")
+    # averageFacesImage(df, "./rateme3D/")

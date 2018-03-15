@@ -5,9 +5,6 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 import glob
-from Beautifier.faceFeatures import getLandmarks
-from Beautifier.face3D.warpFace3D import warpFace3D
-from Beautifier.face3D.faceFeatures3D import getMeshFromLandmarks, model, blendshapes
 import numpy as np
 
 def readMturkResults(filepath):
@@ -128,10 +125,28 @@ def calculate_concensus2(results_by_image):
     print("total: {}/{}".format(c_count, t_count))
     return vector_by_image
 
+def vectorAtPos(vectors, pos, P=6):
+    numerator = np.zeros_like(pos)
+    denominator = 0
+    for influence in vectors:
+        squared_distance = np.sum(np.square(pos - influence[0]))
+        divisor = np.power(squared_distance, P / 2)
+
+        numerator += influence[1] / divisor
+        denominator += 1 / divisor
+
+    v = numerator / denominator
+    return v
+
 if __name__ == "__main__":
+    from Beautifier.faceFeatures import getLandmarks
+    from Beautifier.face3D.warpFace3D import warpFace3D
+    from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING, BFM_FACEFITTING
+    from Beautifier.faceCNN.faceFeaturesCNN import getFaceFeaturesCNN
 
     # mturkResults = r"E:\Drive\FaceAnalysis\Batch_2801527_batch_results.csv"
-    mturkResults = r"E:\Drive\FaceAnalysis\Batch_2806769_batch_results.csv"
+    # mturkResults = r"E:\Drive\FaceAnalysis\Batch_2806769_batch_results.csv"
+    mturkResults = r"E:\Facedata\RateMeDirection\Batch_2941367_batch_results.csv"
 
     results_by_image, shape_coeffs_by_image = readMturkResults2(mturkResults)
 
@@ -163,24 +178,12 @@ if __name__ == "__main__":
     U = np.zeros_like(X)
     V = np.zeros_like(Y)
 
-    P = 6
+
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
-
             p = np.array((X[i][j], Y[i][j]))
-
-            numerator = np.zeros_like(p)
-            denominator = 0
-            for influence in vectors:
-                squared_distance = np.sum(np.square(p - influence[0]))
-                divisor = np.power(squared_distance, P/2)
-
-                numerator += influence[1] / divisor
-                denominator += 1/divisor
-
-
-            v = numerator/denominator
+            v = vectorAtPos(vectors, p)
 
             U[i][j] = v[0]
             V[i][j] = v[1]
@@ -193,67 +196,67 @@ if __name__ == "__main__":
 
     plt.draw()
 
-    from RateMe.RateMe import loadRateMe
-    trainX, trainY, pca, gp = loadRateMe(type="3d", gender="F")
-    X, Y = np.meshgrid(np.linspace(-plt_range, plt_range, num_arrows), np.linspace(-plt_range, plt_range, num_arrows))
+    # from RateMe.RateMe import loadRateMe
+    # trainX, trainY, pca, gp = loadRateMe(type="3d", gender="F")
+    # X, Y = np.meshgrid(np.linspace(-plt_range, plt_range, num_arrows), np.linspace(-plt_range, plt_range, num_arrows))
+    #
+    # Xf = X.flatten()
+    #
+    # samples = np.zeros((Xf.shape[0],63))
+    # samples[:, 0] = Xf
+    # samples[:, 1] = Y.flatten()
+    # y_preds = gp.predict(samples)
+    # y_preds = y_preds.reshape(X.shape)
+    #
+    # gradientX, gradientY = np.gradient(y_preds)
 
-    Xf = X.flatten()
-
-    samples = np.zeros((Xf.shape[0],63))
-    samples[:, 0] = Xf
-    samples[:, 1] = Y.flatten()
-    y_preds = gp.predict(samples)
-    y_preds = y_preds.reshape(X.shape)
-
-    gradientX, gradientY = np.gradient(y_preds)
-
-    plt.figure()
-    plt.title('svms gradient')
-    Q = plt.quiver(X, Y, gradientX, gradientY, units='width')#
-    plt.show()
+    # plt.figure()
+    # plt.title('svms gradient')
+    # Q = plt.quiver(X, Y, gradientX, gradientY, units='width')#
+    # plt.show()
 
 
 
 
 
     # impath = r"E:\Facedata\RateMe\21_F_423ekl\HeC768w.jpg"
-    # # impath = r"E:\Facedata\RateMe\21_F_42mxvl\fWIPj9e.jpg"
-    # im = cv2.imread(impath)
-    # landmarks = getLandmarks(im)
-    # mesh, pose, shape_coeffs, blendshape_coeffs = getMeshFromLandmarks(landmarks, im, num_iterations=300)
-    #
-    # new_shape_coeffs = np.array(shape_coeffs).copy()
-    # distance_moved = 0
-    # poss = []
-    # while distance_moved < 1:
-    #     pos = new_shape_coeffs[:2]
-    #
-    #     numerator = np.zeros_like(pos)
-    #     denominator = 0
-    #     for influence in vectors:
-    #         squared_distance = np.sum(np.square(pos - influence[0]))
-    #         divisor = np.power(squared_distance, P / 2)
-    #
-    #         numerator += influence[1] / divisor
-    #         denominator += 1 / divisor
-    #
-    #     v = numerator / denominator
-    #
-    #     v *= 0.1
-    #
-    #     distance_moved += np.linalg.norm(v)
-    #     pos += v
-    #     new_shape_coeffs[:2] = pos
-    #     poss.append(pos.copy())
-    # poss = np.array(poss)
-    # plt.plot(poss[:,0],poss[:,1],'r-')
-    #
-    # plt.show()
-    #
-    # import eos
-    # newMesh = eos.morphablemodel.draw_sample(model, blendshapes, new_shape_coeffs, blendshape_coeffs, [])  # newFaceFeatures[63:], [])
-    #
-    # warpedIm = warpFace3D(im, mesh, pose, newMesh, accurate=False)
-    # cv2.imshow("warped", warpedIm)
-    # # cv2.waitKey(1)
-    # cv2.waitKey(-1)
+    # impath = r"E:\Facedata\RateMe\21_F_42mxvl\fWIPj9e.jpg"
+    impath = r"E:\Facedata\RateMe\21_M_5mx3xt\a2Odd4w.jpg"
+    im = cv2.imread(impath)
+    landmarks = getLandmarks(im)
+
+    # mesh_sfm, pose_sfm, shape_coeffs_sfm, blendshape_coeffs_sfm = SFM_FACEFITTING.getMeshFromLandmarks(landmarks, im, num_iterations=300)
+    shape_coeffs_bfm = getFaceFeaturesCNN([im])[0:99]
+    pose_bfm = BFM_FACEFITTING.getPoseFromShapeCeoffs(landmarks, im, shape_coeffs_bfm)
+    mesh_bfm = BFM_FACEFITTING.getMeshFromShapeCeoffs(shape_coeffs_bfm)
+
+    # new_shape_coeffs = np.array(shape_coeffs_sfm).copy()
+    new_shape_coeffs = np.array(shape_coeffs_bfm).copy()
+    distance_moved = 0
+    target_distance = 2
+    poss = []
+    while distance_moved < target_distance:
+        pos = new_shape_coeffs[:2]
+
+        v = vectorAtPos(vectors, pos)
+
+        v *= 0.1
+
+        distance_moved += np.linalg.norm(v)
+        pos += v
+        new_shape_coeffs[:2] = pos
+        poss.append(pos.copy())
+    poss = np.array(poss)
+    plt.plot(poss[:,0],poss[:,1],'r-')
+
+    # newMesh_sfm = SFM_FACEFITTING.getMeshFromShapeCeoffs(new_shape_coeffs, blendshape_coeffs_sfm)
+    newMesh_bfm = BFM_FACEFITTING.getMeshFromShapeCeoffs(new_shape_coeffs)
+
+    # warpedIm = warpFace3D(im, mesh_sfm, pose_sfm, newMesh_sfm, accurate=True)
+    warpedIm = warpFace3D(im, mesh_bfm, pose_bfm, newMesh_bfm, accurate=True)
+    cv2.imshow("orig", im)
+    cv2.imshow("warped", warpedIm)
+    # cv2.waitKey(1)
+    cv2.waitKey(1)
+    plt.show()
+    cv2.waitKey(-1)

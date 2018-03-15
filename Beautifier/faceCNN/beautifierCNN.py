@@ -81,25 +81,23 @@ def poseToJS(mesh, pose, im):
     print(js_indexs)
 
 if __name__ == "__main__":
-    # import eos
     # import glob
-    # from US10k.US10k import loadUS10k
-    # from RateMe.RateMe import loadRateMe
+    from RateMe.RateMe import loadRateMe
+    from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING, createTextureMap
     # import Beautifier.faceCNN.utils as utils
     # import scipy.io
     # from sklearn.linear_model import LinearRegression
     # from Beautifier.faceFeatures import getLandmarks
-    # from Beautifier.face3D.faceFeatures3D import SFM_FACEFITTING
-    # from Beautifier.face3D.warpFace3D import drawMesh, warpFace3D
-    # from Beautifier.faceCNN.SFM_2_BFM import BFM_2_SFM
+    from Beautifier.face3D.warpFace3D import drawMesh, warpFace3D
+    from Beautifier.faceCNN.SFM_2_BFM import BFM_2_SFM
 
     # ## Loading the Basel Face Model to write the 3D output
-    BFM_path = os.path.join(os.environ['CNN_PATH'], 'BaselFaceModel_mod.mat')
-    attr_path = os.path.join(os.environ['CNN_PATH'], '04_attributes.mat')
-    model = scipy.io.loadmat(BFM_path, squeeze_me=True, struct_as_record=False)
-    attributes = scipy.io.loadmat(attr_path, squeeze_me=True, struct_as_record=False)
-    model = model["BFM"]
-    faces = model.faces - 1
+    # BFM_path = os.path.join(os.environ['CNN_PATH'], 'BaselFaceModel_mod.mat')
+    # attr_path = os.path.join(os.environ['CNN_PATH'], '04_attributes.mat')
+    # model = scipy.io.loadmat(BFM_path, squeeze_me=True, struct_as_record=False)
+    # attributes = scipy.io.loadmat(attr_path, squeeze_me=True, struct_as_record=False)
+    # model = model["BFM"]
+    # faces = model.faces - 1
 
     GENDER = "M"
 
@@ -124,11 +122,13 @@ if __name__ == "__main__":
             landmarks = getLandmarks(im)
 
             #fit an sfm mesh to the face, we need the pose and blendshapes
-            mesh_sfm_orig, pose_sfm_orig, facefeatures_sfm_orig, blendshape_coeffs_sfm = SFM_FACEFITTING.getMeshFromLandmarks(landmarks, im)
+            mesh_sfm_orig, pose_sfm_orig, facefeatures_sfm_orig, blendshape_coeffs_sfm = SFM_FACEFITTING.getMeshFromLandmarks(landmarks, im, num_iterations=50)
+            mesh_sfm_orig_2, pose_sfm_orig_2, facefeatures_sfm_orig_2, blendshape_coeffs_sfm_2 = SFM_FACEFITTING.getMeshFromLandmarks(landmarks, im, num_iterations=5000)
+            mesh_sfm_orig_3, pose_sfm_orig_3, facefeatures_sfm_orig_3, blendshape_coeffs_sfm_3 = SFM_FACEFITTING.getMeshFromLandmarks(landmarks, im, num_iterations=6000)
             facefeatures_sfm_orig = np.array(facefeatures_sfm_orig)
 
             #get the BFM facefeatures whioh is more accurate
-            facefeatures_bfm = getFaceFeaturesCNN([im])[:99]
+            facefeatures_bfm = getFaceFeaturesCNN([im])
             pose_bfm = BFM_FACEFITTING.getPoseFromShapeCeoffs(landmarks, im, facefeatures_bfm)
             mesh_bfm = BFM_FACEFITTING.getMeshFromShapeCeoffs(facefeatures_bfm)
             poseToJS(mesh_bfm, pose_bfm, im)
@@ -138,8 +138,8 @@ if __name__ == "__main__":
             mesh_sfm = SFM_FACEFITTING.getMeshFromShapeCeoffs(facefeatures_sfm, blendshape_coeffs_sfm)
             pose_sfm = SFM_FACEFITTING.getPoseFromShapeCeoffs(landmarks, im, facefeatures_sfm, blendshape_coeffs_sfm)
 
-            # isomap = createTextureMap(mesh_bfm, pose_bfm, im)
-            # cv2.imwrite("isomap.jpg", isomap)
+            isomap = createTextureMap(mesh_bfm, pose_bfm, im)
+            cv2.imwrite("isomap.jpg", isomap)
 
             #optimise new BFM facefeatures to be more attractive
             new_facefeatures_bfm = facefeatures_bfm.copy()

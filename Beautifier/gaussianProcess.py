@@ -134,7 +134,7 @@ def trainGP(df, dstPath, featureset="facefeatures", train_on_PCA=True, generate_
 
         parameters_to_search = {'estimator__C': np.logspace(0, 2, 3), "estimator__epsilon":np.logspace(-2, 2, 5), "estimator__gamma": np.logspace(-2, 2, 5)}
         if train_on_PCA:
-            parameters_to_search["pca__n_components"] = np.arange(10, int(X.shape[1]), step=2)
+            parameters_to_search["pca__n_components"] = np.arange(30, 61, step=10)
         gridsearch = sklearn.model_selection.GridSearchCV(pipeline, parameters_to_search)
         gridsearch.fit(X,Y)
 
@@ -147,7 +147,7 @@ def trainGP(df, dstPath, featureset="facefeatures", train_on_PCA=True, generate_
         score = sklearn.model_selection.cross_val_score(pipeline, X, Y).mean()
         print("Score with the entire dataset = %.2f" % score)
 
-        # plot_learning_curve(pipeline, "learning curve for linear regression", X, Y, train_sizes=np.linspace(.1, 1.0, 5))
-        # plt.draw()
+        plot_learning_curve(pipeline, "learning curve for linear regression", X, Y, train_sizes=np.linspace(.1, 1.0, 5))
+        plt.show()
 
         pickle.dump((pca,pipeline), open(os.path.join(dstPath,"GP_%s.p"%gender), "wb"))
